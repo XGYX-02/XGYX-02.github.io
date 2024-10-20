@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARR.的个人网站</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Noto Sans SC', sans-serif;
+            color: #333;
+        }
+
+        header {
+            height: 40vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('zhaopian/初音未来38.jpg');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.7;
+            z-index: -1;
+        }
+
+        h1 {
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            font-size: 3rem;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        #intro {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+        }
+
+        #gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .image-container {
+            text-align: center;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: 250px; /* 稍微增加高度 */
+            object-fit: cover;
+            border-radius: 8px;
+            transition: transform 0.3s ease;
+            cursor: pointer; /* 添加鼠标指针样式 */
+        }
+
+        .image-container img:hover {
+            transform: scale(1.05);
+        }
+
+        footer {
+            background-color: #f0f0f0;
+            padding: 1rem;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        footer a {
+            color: #333;
+            font-size: 1.5rem;
+            transition: color 0.3s ease;
+        }
+
+        footer a:hover {
+            color: #007bff;
+        }
+
+        footer span {
+            font-size: 1rem;
+            color: #333;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+        /* 添加这个新样式 */
+        .fullscreen-image img {
+            box-shadow: 0 0 20px rgba(255,255,255,0.5);
+        }
+
+        #hitokoto {
+            font-style: italic;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        /* 添加新的动画样式 */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        body {
+            opacity: 0;
+            animation: fadeIn 1.5s ease-out 0.5s forwards;
+        }
+
+        header {
+            opacity: 0;
+            animation: fadeIn 1.5s ease-out 0.8s forwards, slideUp 1.5s ease-out 0.8s forwards;
+        }
+
+        #intro {
+            opacity: 0;
+            animation: fadeIn 1.5s ease-out 1.2s forwards, slideUp 1.5s ease-out 1.2s forwards;
+        }
+
+        #gallery {
+            opacity: 0;
+            animation: fadeIn 1.5s ease-out 1.5s forwards;
+        }
+
+        #gallery .image-container {
+            opacity: 0;
+            transform: scale(0.9);
+            animation: scaleIn 1s ease-out forwards;
+        }
+
+        footer {
+            opacity: 0;
+            animation: fadeIn 1.5s ease-out 2s forwards, slideUp 1.5s ease-out 2s forwards;
+        }
+
+        /* 修改加载遮罩 */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.8s ease-out, visibility 0.8s;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 在现有样式的末尾添加以下样式 */
+        #favorites-button {
+            position: fixed;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            width: 60px;
+            height: 60px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            z-index: 1000;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        #favorites-button:hover {
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        /* 修改现有的 #favorites-modal 样式 */
+        #favorites-modal {
+            display: none; /* 初始状态设为不显示 */
+            position: fixed;
+            top: 0;
+            right: 0; /* 将初始位置设为 0 */
+            width: 300px;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease-in-out; /* 使用 transform 来实��动效果 */
+            z-index: 1001;
+            overflow-y: auto;
+            transform: translateX(100%); /* 初始状态下向右移动 100% 宽度 */
+        }
+
+        #favorites-modal.active {
+            display: block; /* 激活时显示 */
+            transform: translateX(0); /* 激活时移回原位 */
+        }
+
+        /* 修改关闭按钮样式 */
+        #close-modal {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #333;
+        }
+
+        /* 修改收藏列表样式 */
+        #favorites-list {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 20px;
+        }
+
+        #favorites-list li {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        #favorites-list a {
+            color: #007bff;
+            text-decoration: none;
+            font-size: 16px;
+            transition: color 0.3s ease;
+            display: flex;
+            align-items: center;
+        }
+
+        #favorites-list a:hover {
+            color: #0056b3;
+        }
+
+        #favorites-list img {
+            width: 24px;
+            height: 24px;
+            margin-right: 10px;
+            border-radius: 4px;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            #beijing-time {
+                font-size: 1rem;
+            }
+
+            main {
+                padding: 1rem;
+            }
+
+            #gallery {
+                grid-template-columns: 1fr;
+            }
+
+            .image-container img {
+                height: auto;
+                max-height: 300px;
+            }
+
+            #favorites-button {
+                width: 40px;
+                height: 40px;
+                right: 10px;
+            }
+
+            #favorites-modal {
+                width: 80%;
+                max-width: 300px;
+            }
+
+            footer {
+                flex-direction: column;
+                padding: 0.5rem;
+            }
+
+            footer span {
+                margin-top: 5px;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* 添加一些通用的响应式样式 */
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* 改进全屏图片查看体验 */
+        .fullscreen-image img {
+            max-width: 95%;
+            max-height: 95%;
+        }
+    </style>
+    <!-- 添加 jQuery 引用 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <!-- 添加加载遮罩 -->
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <header>
+        <h1>欢迎来到我的个人网站！</h1>
+        <div id="beijing-time" style="color: white; text-align: center; font-size: 1.2rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);"></div>
+    </header>
+
+    <main>
+        <section id="intro">
+            <p id="hitokoto">正在加载一言...</p>
+        </section>
+
+        <section id="gallery">
+            <div class="image-container">
+                <img src="zhaopian/纳西妲02.jpg" alt="纳西妲02">
+            </div>
+            <div class="image-container">
+                <img src="zhaopian/草神纳西妲原神66.jpg" alt="草神纳西妲原神66">
+            </div>
+            <div class="image-container">
+                <img src="zhaopian/草神纳西妲原神59.jpg" alt="草神纳西妲原神59">
+            </div>
+            <div class="image-container">
+                <img src="zhaopian/1726025850583.jpg" alt="1726025850583">
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <a href="mailto:htsllpyyds715@163.com" title="给我发送邮件">
+            <i class="fas fa-envelope"></i>
+            <span class="sr-only">Email</span>
+        </a>
+        <span style="margin-left: 10px;">htsllpyyds715@163.com</span>
+    </footer>
+
+    <button id="favorites-button" title="我的收藏">★</button>
+
+    <div id="favorites-modal">
+        <h2>我的收藏</h2>
+        <ul id="favorites-list">
+            <li>
+                <a href="https://www.cloudflare-cn.com/" target="_blank">
+                    <img src="https://www.cloudflare.com/favicon.ico" alt="Cloudflare图标">
+                    Cloudflare中国
+                </a>
+            </li>
+            <li>
+                <a href="https://www.bilibili.com/" target="_blank">
+                    <img src="https://www.bilibili.com/favicon.ico" alt="哔哩哔哩图标">
+                    哔哩哔哩
+                </a>
+            </li>
+            <li>
+                <a href="https://www.douyin.com/?recommend=1" target="_blank">
+                    <img src="https://www.douyin.com/favicon.ico" alt="抖音图标">
+                    抖音
+                </a>
+            </li>
+            <li>
+                <a href="https://arr-02.github.io/" target="_blank">
+                    <img src="https://github.com/favicon.ico" alt="ARR的个人网站图标">
+                    ARR的个人网站
+                </a>
+            </li>
+            <li>
+                <a href="https://github.com/" target="_blank">
+                    <img src="https://github.com/favicon.ico" alt="GitHub图标">
+                    GitHub
+                </a>
+            </li>
+        </ul>
+        <button id="close-modal">×</button>
+    </div>
+
+    <script>
+        document.querySelectorAll('#gallery img').forEach(img => {
+            img.addEventListener('click', () => {
+                if (!document.querySelector('.fullscreen-image')) {
+                    const fullscreenImage = document.createElement('div');
+                    fullscreenImage.className = 'fullscreen-image';
+                    fullscreenImage.style.position = 'fixed';
+                    fullscreenImage.style.top = '0';
+                    fullscreenImage.style.left = '0';
+                    fullscreenImage.style.width = '100%';
+                    fullscreenImage.style.height = '100%';
+                    fullscreenImage.style.backgroundColor = 'rgba(0,0,0,0.8)';
+                    fullscreenImage.style.display = 'flex';
+                    fullscreenImage.style.justifyContent = 'center';
+                    fullscreenImage.style.alignItems = 'center';
+                    fullscreenImage.style.zIndex = '1000';
+
+                    const image = document.createElement('img');
+                    image.src = img.src;
+                    image.style.maxWidth = '90%';
+                    image.style.maxHeight = '90%';
+                    image.style.objectFit = 'contain';
+
+                    fullscreenImage.appendChild(image);
+                    document.body.appendChild(fullscreenImage);
+
+                    fullscreenImage.addEventListener('click', () => {
+                        document.body.removeChild(fullscreenImage);
+                    });
+                }
+            });
+        });
+
+        // 替换现有的 fetchHitokoto 函数
+        function fetchHitokoto() {
+            const localHitokoto = [
+                { hitokoto: "生活就像一盒巧克力，你永远不知道下一颗是什么味道。", from: "阿甘正传" },
+                { hitokoto: "我们终将远行，和过去稚嫩的自己告别。", from: "你的名字。" },
+                { hitokoto: "不要等待，时机永远不会恰到好处。", from: "拿破仑·希尔" },
+                { hitokoto: "人生就像一场旅行，不必在乎目的地，在乎的是沿途的风景以及看风景的心情。", from: "林语堂" },
+                { hitokoto: "生命中最困难的时刻不是没有人懂你，而是你不懂你自己。", from: "歌德" }
+            ];
+
+            const randomIndex = Math.floor(Math.random() * localHitokoto.length);
+            const hitokoto = localHitokoto[randomIndex];
+
+            const hitokotoElement = document.getElementById('hitokoto');
+            hitokotoElement.innerText = `${hitokoto.hitokoto} —— ${hitokoto.from}`;
+        }
+
+        // 立即调用
+        fetchHitokoto();
+
+        // 每隔一段时间更新一言
+        setInterval(fetchHitokoto, 60000); // 每60秒更新一次
+
+        // 保留这行以确保在 DOM 加载完成后也会执行
+        document.addEventListener('DOMContentLoaded', fetchHitokoto);
+
+        // 修改页面加载完成后的动画
+        window.addEventListener('load', function() {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            loadingOverlay.style.opacity = '0';
+            loadingOverlay.style.visibility = 'hidden';
+
+            const images = document.querySelectorAll('#gallery .image-container');
+            images.forEach((img, index) => {
+                img.style.animationDelay = `${1.8 + index * 0.2}s`;
+            });
+        });
+
+        // 添加滚动动画
+        function isElementInViewport(el) {
+            const rect = el.getBoundingClientRect();
+            return (
+                rect.top >= 0 &&
+                rect.left >= 0 &&
+                rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+                rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+            );
+        }
+
+        function handleScrollAnimation() {
+            const elements = document.querySelectorAll('.animate-on-scroll');
+            elements.forEach(el => {
+                if (isElementInViewport(el)) {
+                    el.classList.add('animated');
+                }
+            });
+        }
+
+        window.addEventListener('scroll', handleScrollAnimation);
+        window.addEventListener('resize', handleScrollAnimation);
+        window.addEventListener('load', handleScrollAnimation);
+
+        // 保留其他脚本
+
+        const favoritesButton = document.getElementById('favorites-button');
+        const favoritesModal = document.getElementById('favorites-modal');
+        const closeModal = document.getElementById('close-modal');
+
+        console.log('Favorites button:', favoritesButton); // 调试输出
+        console.log('Favorites modal:', favoritesModal); // 调试输出
+
+        favoritesButton.addEventListener('click', () => {
+            console.log('Favorites button clicked');
+            favoritesModal.style.display = 'block'; // 先显示元素
+            setTimeout(() => { // 使用 setTimeout 来确保 display 变化已经应用
+                favoritesModal.classList.add('active');
+            }, 10);
+            console.log('Active class added:', favoritesModal.classList.contains('active'));
+        });
+
+        closeModal.addEventListener('click', () => {
+            console.log('Close button clicked');
+            favoritesModal.classList.remove('active');
+            // 等过渡效果完成后隐藏元素
+            setTimeout(() => {
+                favoritesModal.style.display = 'none';
+            }, 300); // 300ms 过渡效果的持续时间
+            console.log('Active class removed:', !favoritesModal.classList.contains('active'));
+        });
+
+        // 点击侧边栏外部关闭侧边栏
+        document.addEventListener('click', (event) => {
+            if (!favoritesModal.contains(event.target) && event.target !== favoritesButton) {
+                favoritesModal.classList.remove('active');
+            }
+        });
+
+        // 阻止点击侧边栏内部时关闭侧边栏
+        favoritesModal.addEventListener('click', (event) => {
+            event.stopPropagation();
+        });
+
+        // 修雪花效果函数
+        (function($) {
+            $.fn.snow = function (options) {
+                var $flake = $('<div id="snowbox" />').css({
+                    'position': 'fixed',
+                    'z-index': '9999',
+                    'top': '-50px',
+                    'pointer-events': 'none'  // 确保雪花不会影响页面交互
+                }).html('&#10052;'),
+                documentHeight = $(document).height(),
+                documentWidth = $(document).width(),
+                defaults = {
+                    minSize: 2,      // 减小最小尺寸
+                    maxSize: 15,     // 减小最大尺寸
+                    newOn: 200,      // 更频繁地生成雪花
+                    flakeColor: "#FFFFFF",  // 保持白色
+                    fallSpeed: 1,    // 控制下落速度
+                    flakeCount: 150  // 控制雪花数量
+                },
+                options = $.extend({}, defaults, options);
+
+                var interval = setInterval(function() {
+                    var startPositionLeft = Math.random() * documentWidth - 100,
+                        startOpacity = 0.5 + Math.random(),
+                        sizeFlake = options.minSize + Math.random() * options.maxSize,
+                        endPositionTop = documentHeight - 40,
+                        endPositionLeft = startPositionLeft - 100 + Math.random() * 200,
+                        durationFall = documentHeight * 10 + Math.random() * 5000 / options.fallSpeed;
+
+                    $flake.clone().appendTo('body').css({
+                        left: startPositionLeft,
+                        opacity: startOpacity,
+                        'font-size': sizeFlake,
+                        color: options.flakeColor
+                    }).animate({
+                        top: endPositionTop,
+                        left: endPositionLeft,
+                        opacity: 0.2
+                    }, durationFall, 'linear', function() {
+                        $(this).remove();
+                    });
+                }, options.newOn);
+
+                // 添加停止功能
+                return {
+                    stop: function() {
+                        clearInterval(interval);
+                        $('div#snowbox').remove();
+                    }
+                };
+            };
+        })(jQuery);
+
+        // 初始化雪花效果
+        var snow;
+        $(function () {
+            snow = $.fn.snow({
+                minSize: 5,     // 增加最小雪花尺寸，原来是 2
+                maxSize: 25,    // ���加最大雪花尺寸，原来是 15
+                newOn: 200,     // 保持每200毫秒生成一片新的雪花
+                flakeColor: "#FFFFFF",  // 保持使用白色雪花
+                fallSpeed: 1,   // 保持下落速度不变
+                flakeCount: 150 // 保持雪花数量不变
+            });
+        });
+
+        // 可选：添加停止雪花的功能
+        // 例如，在某个事件触发时：
+        // snow.stop();
+
+        // 浏览器标题变化
+        var OriginTitle = document.title;
+        var titleTime;
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) {
+                document.title = '╭(°A°`)╮ 页面崩溃啦 ~';
+                clearTimeout(titleTime);
+            }
+            else {
+                document.title = '(ฅ>ω<*ฅ) 噫又好啦 ~' + OriginTitle;
+                titleTime = setTimeout(function () {
+                    document.title = OriginTitle;
+                }, 2000);
+            }
+        });
+
+        // 获取所有图片路径
+        const imagePaths = [
+            'zhaopian/纳西妲02.jpg',
+            'zhaopian/草神纳西妲原神66.jpg',
+            'zhaopian/草神纳西妲原神59.jpg',
+            'zhaopian/1726025850583.jpg',
+            'zhaopian/初音未来38.jpg'  // 添加头部背景图片
+        ];
+
+        // 随机选择一张图片
+        function getRandomImage() {
+            const randomIndex = Math.floor(Math.random() * imagePaths.length);
+            return imagePaths[randomIndex];
+        }
+
+        // 设置收藏按钮的背景图片
+        function setFavoritesButtonImage() {
+            const randomImage = getRandomImage();
+            const favoritesButton = document.getElementById('favorites-button');
+            favoritesButton.style.backgroundImage = `url('${randomImage}')`;
+            favoritesButton.innerHTML = ''; // 移除星号
+        }
+
+        // 页面加载时设置收藏按钮图片
+        document.addEventListener('DOMContentLoaded', setFavoritesButtonImage);
+
+        // 每次点击收藏按钮时更换图片
+        favoritesButton.addEventListener('click', (event) => {
+            setFavoritesButtonImage();
+            // ... 保留原的点击事件处理 ...
+        });
+
+        // 改进全屏图片查看功能，使其在移动端更易用
+        document.querySelectorAll('#gallery img').forEach(img => {
+            img.addEventListener('click', () => {
+                if (!document.querySelector('.fullscreen-image')) {
+                    const fullscreenImage = document.createElement('div');
+                    fullscreenImage.className = 'fullscreen-image';
+                    fullscreenImage.style.position = 'fixed';
+                    fullscreenImage.style.top = '0';
+                    fullscreenImage.style.left = '0';
+                    fullscreenImage.style.width = '100%';
+                    fullscreenImage.style.height = '100%';
+                    fullscreenImage.style.backgroundColor = 'rgba(0,0,0,0.9)';
+                    fullscreenImage.style.display = 'flex';
+                    fullscreenImage.style.justifyContent = 'center';
+                    fullscreenImage.style.alignItems = 'center';
+                    fullscreenImage.style.zIndex = '1000';
+
+                    const image = document.createElement('img');
+                    image.src = img.src;
+                    image.style.maxWidth = '95%';
+                    image.style.maxHeight = '95%';
+                    image.style.objectFit = 'contain';
+
+                    fullscreenImage.appendChild(image);
+                    document.body.appendChild(fullscreenImage);
+
+                    fullscreenImage.addEventListener('click', () => {
+                        document.body.removeChild(fullscreenImage);
+                    });
+                }
+            });
+        });
+
+        // 修改 initSnow 函数
+        function initSnow() {
+            const isMobile = window.innerWidth <= 768;
+            if (!isMobile) {
+                snow = $.fn.snow({
+                    minSize: 5,
+                    maxSize: 25,
+                    newOn: 200,
+                    flakeColor: "#FFFFFF",
+                    fallSpeed: 1,
+                    flakeCount: 150
+                });
+            } else if (snow) {
+                snow.stop();
+            }
+        }
+
+        $(function () {
+            initSnow();
+            $(window).resize(function() {
+                if (snow) {
+                    snow.stop();
+                }
+                initSnow();
+            });
+        });
+
+        // 在现有的 script 标签内添加以下函数
+        function updateBeijingTime() {
+            const now = new Date();
+            const options = { 
+                timeZone: 'Asia/Shanghai',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            };
+            const timeString = now.toLocaleString('zh-CN', options).replace(/\//g, '-');
+            document.getElementById('beijing-time').textContent = timeString; // 修改这一行，移除了 '北京时间：'
+        }
+
+        // 初始更新时间
+        updateBeijingTime();
+
+        // 每秒更新一次时间
+        setInterval(updateBeijingTime, 1000);
+    </script>
+</body>
+</html>
