@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>题目编辑</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='24' font-size='28'>✏️</text></svg>">
+</head>
+<body>
+<div class="container">
+  <!-- 导航 -->
+  <nav class="nav"></nav>
+  <!-- 题库统计 -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">✏️ 题库编辑</span></div>
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-item"><div class="stat-value" id="statTotal">0</div><div class="stat-label">总题量</div></div>
+      <div class="stat-item"><div class="stat-value" id="statBuiltin">0</div><div class="stat-label">内置题库</div></div>
+      <div class="stat-item"><div class="stat-value" id="statImported">0</div><div class="stat-label">PDF导入</div></div>
+      <div class="stat-item"><div class="stat-value" id="statCustom">0</div><div class="stat-label">自定义</div></div>
+      <div class="stat-item"><div class="stat-value" id="statDone">0</div><div class="stat-label">已做</div></div>
+    </div>
+    <div id="customProgress"></div>
+  </div>
+  <!-- 编辑表单 -->
+  <div class="card" id="editorCard">
+    <div class="card-header"><span class="card-title" id="formTitle">➕ 添加题目</span></div>
+    <div style="font-size:0.75em;color:var(--text-secondary);margin-bottom:10px;">支持编辑下方列表中任意来源的题目；新添加的题目存入自定义题库</div>
+    <div class="btn-group" style="margin-bottom:10px;">
+      <button class="btn btn-sm type-btn" data-type="single" onclick="setType('single')">📝 单选</button>
+      <button class="btn btn-sm type-btn" data-type="multi" onclick="setType('multi')">☑️ 多选</button>
+      <button class="btn btn-sm type-btn" data-type="judge" onclick="setType('judge')">✅ 判断</button>
+      <button class="btn btn-sm type-btn" data-type="calc" onclick="setType('calc')">🔢 计算</button>
+    </div>
+    <div class="form-field">
+      <div class="form-label">章节（可选，默认"自定义"）</div>
+      <input type="text" id="fChapter" placeholder="如：第3章 / 模拟考">
+    </div>
+    <div class="form-field">
+      <div class="form-label">题干 *</div>
+      <textarea id="fQuestion" placeholder="输入题干内容..."></textarea>
+    </div>
+    <!-- 选项/答案动态区（按题型渲染） -->
+    <div id="fAnswerArea"></div>
+    <div class="form-field">
+      <div class="form-label">解析（可选）</div>
+      <textarea id="fExplanation" placeholder="输入答案解析..."></textarea>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveQuestion()">💾 保存题目</button>
+      <button class="btn" id="cancelEditBtn" style="display:none;" onclick="resetForm()">✖ 取消编辑</button>
+    </div>
+  </div>
+  <!-- 筛选与操作 -->
+  <div class="card" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <div class="filter-bar">
+      <select id="filterSource" onchange="refreshList()">
+        <option value="all">全部来源</option>
+        <option value="builtin">内置题库</option>
+        <option value="imported">PDF导入</option>
+        <option value="custom">自定义</option>
+      </select>
+      <select id="filterType" onchange="refreshList()">
+        <option value="all">全部题型</option>
+        <option value="single">单选</option>
+        <option value="multi">多选</option>
+        <option value="judge">判断</option>
+        <option value="calc">计算</option>
+      </select>
+      <input type="search" id="listSearch" placeholder="搜索题目..." oninput="refreshList()" style="min-width:140px;">
+    </div>
+    <div class="btn-group">
+      <a href="exam.html?type=all" class="btn btn-primary btn-sm">🚀 去刷题</a>
+      <button class="btn btn-sm btn-danger" onclick="clearAllCustom()">⚠️ 清空自定义题</button>
+    </div>
+  </div>
+  <!-- 题目列表 -->
+  <div id="customList"></div>
+  <div id="loadMoreSentinel"></div>
+</div>
+<div class="toast"></div>
+<script src="js/storage.js"></script>
+<script src="js/question.js"></script>
+<script src="js/common.js"></script>
+<script>
+// ===== 状态 =====
+let editingId = null;          // 正在编辑的题目id（null=新增模式）
+let editingImage = '';         // 编辑中的题目原图（保存时保留，避免丢失）
+let currentType = 'single';   // 当前编辑题型
+let formOptions = [];          // 选项状态 [{text, correct}]（仅单选/多选）
+let displayPage = 0;
+let listItems = [];
+// ===== 题型切换 =====
+function setType(t) {
+  currentType = t;
+  // 单选只允许1个正确答案：从多选切回时仅保留第一个勾选
+  if (t === 'single') {
+    let firstKept = false;
+    formOptions.forEach(o => {
+      if (o.correct && !firstKept) firstKept = true;
+      else if (o.correct) o.correct = false;
+    });
+  }
+  document.querySelectorAll('.type-btn').forEach(b => {
+    b.classList.toggle('btn-primary', b.dataset.type === t);
+  });
+  renderAnswerArea();
+}
+// ===== 渲染选项/答案区（按题型；输入框统一整行宽） =====
+function renderAnswerArea() {
+  const area = document.getElementById('fAnswerArea');
+  if (currentType === 'single' || currentType === 'multi') {
+    if (formOptions.length === 0) {
+      formOptions = [{text:'',correct:false},{text:'',correct:false},{text:'',correct:false},{text:'',correct:false}];
+    }
+    const isSingle = currentType === 'single';
+    let html = '<div class="form-label">选项（' + (isSingle ? '点○选择正确答案' : '勾选全部正确答案') + '）</div>';
+    formOptions.forEach((opt, i) => {
+      const key = String.fromCharCode(65 + i);
+      html += `
+      <div class="opt-row">
+        <div class="opt-row-head">
+          <span class="badge badge-single opt-key">${key}</span>
+          <label class="opt-correct" title="设为正确答案">
+            <input type="${isSingle ? 'radio' : 'checkbox'}" name="ansOpt" ${opt.correct ? 'checked' : ''} onchange="toggleOptionCorrect(${i}, this.checked)">
+            <span>正确答案</span>
+          </label>
+          <button class="btn btn-sm btn-danger opt-del" onclick="removeOption(${i})" title="删除该选项">✕</button>
+        </div>
+        <input type="text" data-idx="${i}" class="opt-text" placeholder="选项 ${key} 内容" value="${escapeAttr(opt.text)}" oninput="updateOptionText(${i}, this.value)">
+      </div>`;
+    });
+    html += `<button class="btn btn-sm" onclick="addOption()" ${formOptions.length >= 8 ? 'disabled style="opacity:0.5;"' : ''}>➕ 添加选项</button>`;
+    area.innerHTML = html;
+  } else if (currentType === 'judge') {
+    area.innerHTML = `<div class="form-label">答案 *</div>
+      <div class="judge-form-btns">
+        <button class="btn judge-ans-btn" data-ans="A" onclick="setJudgeAnswer('A')">✓ 对（正确）</button>
+        <button class="btn judge-ans-btn" data-ans="B" onclick="setJudgeAnswer('B')">✗ 错（错误）</button>
+      </div>`;
+  } else { // calc
+    area.innerHTML = `<div class="form-label">参考答案 *</div>
+      <textarea id="fCalcAnswer" placeholder="输入参考答案（支持文字/公式描述）"></textarea>`;
+  }
+}
+// ===== 选项操作 =====
+function addOption() {
+  if (formOptions.length >= 8) return;
+  formOptions.push({text:'',correct:false});
+  renderAnswerArea();
+}
+function removeOption(idx) {
+  if (formOptions.length <= 2) { App.showToast('至少需要2个选项', 'error'); return; }
+  formOptions.splice(idx, 1);
+  renderAnswerArea();
+}
+function updateOptionText(idx, val) { if (formOptions[idx]) formOptions[idx].text = val; }
+function toggleOptionCorrect(idx, checked) { if (formOptions[idx]) formOptions[idx].correct = checked; }
+// ===== 判断题答案 =====
+let judgeAnswer = '';
+function setJudgeAnswer(ans) {
+  judgeAnswer = ans;
+  document.querySelectorAll('.judge-ans-btn').forEach(b => {
+    b.classList.toggle('btn-primary', b.dataset.ans === ans);
+  });
+}
+// ===== 表单收集与校验 =====
+function collectForm() {
+  const question = document.getElementById('fQuestion').value.trim();
+  if (!question) { App.showToast('请输入题干', 'error'); return null; }
+  let chapter = document.getElementById('fChapter').value.trim() || '自定义';
+  const explanation = document.getElementById('fExplanation').value.trim();
+  const q = { type: currentType, chapter, question, explanation, image: '' };
+  if (currentType === 'single' || currentType === 'multi') {
+    const opts = formOptions.filter(o => o.text.trim());
+    if (opts.length < 2) { App.showToast('至少填写2个选项', 'error'); return null; }
+    // 勾选为正确答案的选项必须有内容
+    if (formOptions.some(o => o.correct && !o.text.trim())) {
+      App.showToast('正确答案对应的选项内容不能为空', 'error');
+      return null;
+    }
+    const validCorrect = opts.filter(o => o.correct);
+    if (currentType === 'single' && validCorrect.length !== 1) { App.showToast('单选题请勾选1个正确答案', 'error'); return null; }
+    if (currentType === 'multi' && validCorrect.length < 1) { App.showToast('多选题至少勾选1个正确答案', 'error'); return null; }
+    q.options = opts.map((o, i) => ({ key: String.fromCharCode(65 + i), text: o.text.trim() }));
+    // 按过滤后的最终顺序分配字母，勾选正确答案的字母集合即答案
+    const letters = [];
+    opts.forEach((o, i) => { if (o.correct) letters.push(String.fromCharCode(65 + i)); });
+    q.answer = letters.sort().join('');
+    // 选项只有"对/错"两样且只勾选其一 → 自动归类为判断题（A=对 B=错）
+    const texts = opts.map(o => o.text.trim());
+    const yesIdx = texts.findIndex(t => /^(正确|对|√|是|True)$/i.test(t));
+    const noIdx = texts.findIndex(t => /^(错误|错|×|否|False)$/i.test(t));
+    if (yesIdx >= 0 && noIdx >= 0 && letters.length === 1) {
+      q.type = 'judge';
+      q.answer = letters[0].charCodeAt(0) - 65 === yesIdx ? 'A' : 'B';
+      q.options = [];
+    }
+  } else if (currentType === 'judge') {
+    if (!judgeAnswer) { App.showToast('请选择判断题答案（对/错）', 'error'); return null; }
+    q.answer = judgeAnswer;
+  } else { // calc
+    const ans = document.getElementById('fCalcAnswer').value.trim();
+    if (!ans) { App.showToast('请输入参考答案', 'error'); return null; }
+    q.answer = ans;
+  }
+  return q;
+}
+// ===== 保存 =====
+function saveQuestion() {
+  const q = collectForm();
+  if (!q) return;
+  if (editingId !== null) {
+    q.id = editingId;
+    q.image = editingImage || ''; // 保留原图，避免编辑时丢失
+    if (Storage.updateQuestionAnywhere(q)) {
+      App.showToast('✅ 题目已更新', 'success');
+    } else {
+      App.showToast('更新失败，题目不存在', 'error');
+    }
+  } else {
+    Storage.addCustomQuestion(q);
+    App.showToast('✅ 题目已添加', 'success');
+  }
+  resetForm();
+  refreshList();
+  updateStats();
+}
+// ===== 编辑已有题目（内置/PDF导入/自定义均可） =====
+function editQuestion(id) {
+  const found = Storage.findQuestionAnywhere(id);
+  if (!found) { App.showToast('题目不存在', 'error'); return; }
+  const q = found.question;
+  editingId = id;
+  editingImage = q.image || '';
+  currentType = q.type;
+  judgeAnswer = q.type === 'judge' ? q.answer : '';
+  formOptions = (q.type === 'single' || q.type === 'multi')
+    ? q.options.map(o => ({ text: o.text, correct: q.answer.includes(o.key) }))
+    : [];
+  document.getElementById('fChapter').value = q.chapter || '';
+  document.getElementById('fQuestion').value = q.question;
+  document.getElementById('fExplanation').value = q.explanation || '';
+  const srcLabel = { builtin: '内置', imported: '导入', custom: '自定义' }[found.source] || found.source;
+  document.getElementById('formTitle').textContent = `✏️ 编辑题目 #${q.id}（${srcLabel}）`;
+  document.getElementById('cancelEditBtn').style.display = '';
+  setType(q.type);
+  const calcInput = document.getElementById('fCalcAnswer');
+  if (calcInput) calcInput.value = q.type === 'calc' ? q.answer : '';
+  if (q.type === 'judge') setJudgeAnswer(q.answer);
+  document.getElementById('editorCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+// ===== 重置表单 =====
+function resetForm() {
+  editingId = null;
+  editingImage = '';
+  judgeAnswer = '';
+  formOptions = [];
+  document.getElementById('fChapter').value = '';
+  document.getElementById('fQuestion').value = '';
+  document.getElementById('fExplanation').value = '';
+  document.getElementById('formTitle').textContent = '➕ 添加题目';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  setType(currentType);
+}
+// ===== 列表（合并内置/PDF导入/自定义三个题库） =====
+function refreshList() {
+  App.getQuestions(); // 确保内置题库已缓存
+  const filterType = document.getElementById('filterType').value;
+  const filterSource = document.getElementById('filterSource').value;
+  const searchQuery = document.getElementById('listSearch').value || '';
+  const items = [];
+  (Storage.getCachedQuestions() || []).forEach(q => items.push({ ...q, source: 'builtin' }));
+  Storage.getImportedQuestions().forEach(q => items.push({ ...q, source: 'imported' }));
+  Storage.getCustomQuestions().forEach(q => items.push({ ...q, source: 'custom' }));
+  let filtered = items;
+  if (filterType !== 'all') filtered = filtered.filter(q => q.type === filterType);
+  if (filterSource !== 'all') filtered = filtered.filter(q => q.source === filterSource);
+  if (searchQuery.trim()) filtered = App.searchQuestions(searchQuery, filtered);
+  listItems = filtered;
+  displayPage = 0;
+  document.getElementById('customList').innerHTML = '';
+  renderListPage();
+}
+function renderListPage() {
+  const container = document.getElementById('customList');
+  if (listItems.length === 0) {
+    container.innerHTML = `<div class="card" style="text-align:center;color:var(--text-secondary);padding:24px;">没有符合条件的题目</div>`;
+    return;
+  }
+  const page = App.getPageItems(listItems, displayPage);
+  container.innerHTML += page.map(q => {
+    const badgeClass = { single: 'badge-single', multi: 'badge-multi', judge: 'badge-judge', calc: 'badge-calc' }[q.type] || 'badge-calc';
+    const typeLabel = { single: '单选', multi: '多选', judge: '判断', calc: '计算' }[q.type] || q.type;
+    const srcLabel = { builtin: '内置', imported: '导入', custom: '自定义' }[q.source] || q.source;
+    const srcStyle = { builtin: 'background:var(--primary-light);color:var(--primary);', imported: 'background:var(--warning-light);color:var(--warning);', custom: 'background:var(--success-light);color:var(--success);' }[q.source] || '';
+    const ansText = q.type === 'judge' ? (q.answer === 'A' ? '对 ✓' : '错 ✗')
+      : (q.type === 'calc' ? (q.answer.length > 40 ? q.answer.slice(0, 40) + '...' : q.answer)
+      : q.type === 'multi' ? q.answer.split('').join(' ') : q.answer);
+    return `<div class="card" style="padding:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+        <span><span class="badge ${badgeClass}">${typeLabel}</span> <span class="badge" style="${srcStyle}">${srcLabel}</span> <strong>#${q.id}</strong></span>
+        <span style="font-size:0.75em;color:var(--text-secondary);">${escapeHtml(q.chapter || '')}</span>
+      </div>
+      <div style="margin:6px 0;font-size:0.95em;">${escapeHtml(q.question.length > 100 ? q.question.slice(0, 100) + '...' : q.question)}</div>
+      <div style="font-size:0.8em;color:var(--text-secondary);">答案：<strong style="color:var(--success);">${escapeHtml(ansText)}</strong></div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+        <button class="btn btn-sm btn-primary" onclick="editQuestion(${q.id})">✏️ 编辑</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteQuestion(${q.id})">🗑️ 删除</button>
+      </div>
+    </div>`;
+  }).join('');
+  displayPage++;
+  if (displayPage * App.PAGE_SIZE < listItems.length) setupLoadMore();
+}
+let listObserver = null;
+function setupLoadMore() {
+  const sentinel = document.getElementById('loadMoreSentinel');
+  if (!sentinel) return;
+  if (listObserver) listObserver.disconnect();
+  listObserver = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting && displayPage * App.PAGE_SIZE < listItems.length) renderListPage();
+  }, { rootMargin: '200px' });
+  listObserver.observe(sentinel);
+}
+// ===== 删除 =====
+function deleteQuestion(id) {
+  App.showModal('删除题目', '确定要删除这道题目吗？其答题记录也会被清除，不可恢复！', () => {
+    if (Storage.deleteQuestionAnywhere(id)) {
+      if (editingId === id) resetForm();
+      App.showToast('已删除', 'success');
+    } else {
+      App.showToast('删除失败，题目不存在', 'error');
+    }
+    refreshList();
+    updateStats();
+  }, '确认删除', true);
+}
+function clearAllCustom() {
+  App.showModal('⚠️ 清空自定义题', '此操作将删除全部自定义添加的题目（不影响内置题库和PDF导入题），不可恢复！确定要继续吗？', () => {
+    Storage.clearCustomQuestions();
+    resetForm();
+    App.showToast('✅ 已清空自定义题库', 'success');
+    refreshList();
+    updateStats();
+  }, '确认清空', true);
+}
+// ===== 统计（按来源） =====
+function updateStats() {
+  App.getQuestions(); // 确保内置题库已缓存
+  const builtin = Storage.getCachedQuestions() || [];
+  const imported = Storage.getImportedQuestions();
+  const custom = Storage.getCustomQuestions();
+  const all = builtin.concat(imported, custom);
+  document.getElementById('statTotal').textContent = all.length;
+  document.getElementById('statBuiltin').textContent = builtin.length;
+  document.getElementById('statImported').textContent = imported.length;
+  document.getElementById('statCustom').textContent = custom.length;
+  const records = Storage.getRecords();
+  let done = 0;
+  const answered = {};
+  all.forEach(q => {
+    const r = records[q.id];
+    if (r && (r.correct > 0 || r.wrong > 0)) { done++; answered[q.id] = r.correct > r.wrong; }
+  });
+  document.getElementById('statDone').textContent = done;
+  App.renderProgress(document.getElementById('customProgress'), answered);
+}
+// ===== 工具 =====
+function escapeAttr(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+// ===== 初始化 =====
+document.addEventListener('DOMContentLoaded', () => {
+  setType('single');
+  refreshList();
+  updateStats();
+});
+</script>
+</body>
+</html>

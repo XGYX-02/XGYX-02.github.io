@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>设置</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='24' font-size='28'>⚙️</text></svg>">
+</head>
+<body>
+<div class="container">
+  <nav class="nav"></nav>
+  <!-- 0. 全局概览 -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">⚙️ 全局设置</span></div>
+    <div class="stats-grid" id="cfgOverview">
+      <div class="stat-item"><div class="stat-value" id="ovTheme">浅色</div><div class="stat-label">当前主题</div></div>
+      <div class="stat-item"><div class="stat-value" id="ovFont">标准</div><div class="stat-label">字体大小</div></div>
+      <div class="stat-item"><div class="stat-value" id="ovBank">0</div><div class="stat-label">题库总量</div></div>
+      <div class="stat-item"><div class="stat-value" id="ovDone">0</div><div class="stat-label">已做题数</div></div>
+      <div class="stat-item"><div class="stat-value" id="ovRate">0%</div><div class="stat-label">正确率</div></div>
+      <div class="stat-item"><div class="stat-value" id="ovSession">0</div><div class="stat-label">可恢复练习</div></div>
+    </div>
+    <div style="font-size:0.75em;color:var(--text-secondary);margin-top:8px;">设置项按下方分组展示，修改即时保存</div>
+  </div>
+  <!-- 1. 主题与视觉 -->
+  <div class="card">
+    <div class="setting-group">
+      <h3>🎨 主题与视觉设置</h3>
+      <div class="setting-row">
+        <div><div class="setting-label">深色模式</div><div class="setting-desc">夜间护眼，降低全局亮度</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgTheme" onchange="updateSetting('theme', this.checked?'dark':'light')"><span class="slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">字体大小</div></div>
+        <select id="cfgFontSize" onchange="updateSetting('fontSize', this.value)" style="min-height:48px;">
+          <option value="standard">标准</option>
+          <option value="large">放大</option>
+          <option value="xlarge">超大</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">公式等宽渲染</div><div class="setting-desc">启用等宽字体，优化通信公式排版对齐</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgFormulaMono" onchange="updateSetting('formulaMono', this.checked)"><span class="slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">动画效果</div><div class="setting-desc">关闭可减少低配设备卡顿</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgAnimation" onchange="updateSetting('animation', this.checked)"><span class="slider"></span></label>
+      </div>
+    </div>
+  </div>
+  <!-- 2. 答题计时 -->
+  <div class="card">
+    <div class="setting-group">
+      <h3>⏱️ 答题计时配置</h3>
+      <div class="setting-row">
+        <div><div class="setting-label">计时总开关</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgTimerEnabled" onchange="updateSetting('timerEnabled', this.checked)"><span class="slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">单题最大作答时间（秒）</div><div class="setting-desc">超时触发提醒</div></div>
+        <input type="number" id="cfgTimePerQuestion" value="120" min="10" max="600" onchange="updateSetting('timePerQuestion', parseInt(this.value))" style="width:80px;text-align:center;min-height:48px;">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">超时弹窗提醒</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgTimeoutWarn" onchange="updateSetting('timeoutWarn', this.checked)"><span class="slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">超时自动标记错题</div><div class="setting-desc">超时未答自动归入错题本</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgTimeoutMarkError" onchange="updateSetting('timeoutMarkError', this.checked)"><span class="slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">计时音效</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgTimerSound" onchange="updateSetting('timerSound', this.checked)"><span class="slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">答对提示音</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgSoundCorrect" onchange="updateSetting('soundCorrect', this.checked)"><span class="slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">答错提示音</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgSoundWrong" onchange="updateSetting('soundWrong', this.checked)"><span class="slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">超时提示音</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgSoundTimeout" onchange="updateSetting('soundTimeout', this.checked)"><span class="slider"></span></label>
+      </div>
+    </div>
+  </div>
+  <!-- 3. 错题 -->
+  <div class="card">
+    <div class="setting-group">
+      <h3>📋 错题管理</h3>
+      <div class="setting-row">
+        <div><div class="setting-label">错题自动清理</div><div class="setting-desc">答对次数＞答错次数时自动移出错题本</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgAutoCleanErrors" onchange="updateSetting('autoCleanErrors', this.checked)"><span class="slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">自动归档旧记录</div><div class="setting-desc">超过指定天数的作答记录自动归档，减少存储</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgAutoArchive" onchange="updateSetting('autoArchive', this.checked)"><span class="slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">归档天数阈值</div><div class="setting-desc">超过此天数的历史记录自动归档</div></div>
+        <input type="number" id="cfgArchiveDays" value="3" min="1" max="90" onchange="updateSetting('archiveDays', parseInt(this.value))" style="width:80px;text-align:center;min-height:48px;">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">薄弱题答错阈值</div><div class="setting-desc">答错次数≥此值自动标记为薄弱题</div></div>
+        <input type="number" id="cfgWeakThreshold" value="2" min="1" max="10" onchange="updateSetting('weakThreshold', parseInt(this.value))" style="width:80px;text-align:center;min-height:48px;">
+      </div>
+    </div>
+  </div>
+  <!-- 4. 刷题行为 -->
+  <div class="card">
+    <div class="setting-group">
+      <h3>📝 刷题行为配置</h3>
+      <div class="setting-row">
+        <div><div class="setting-label">打乱选项</div><div class="setting-desc">开启后随机打乱单选/多选题的选项顺序，关闭则按默认顺序显示</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgShuffleOptions" onchange="updateSetting('shuffleOptions', this.checked)"><span class="slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">答对自动切题延迟（毫秒）</div><div class="setting-desc">答对后等待此时间再切下一题，设为0则立即切换</div></div>
+        <input type="number" id="cfgAutoNextDelay" value="300" min="0" max="3000" step="100" onchange="updateSetting('autoNextDelay', parseInt(this.value))" style="width:100px;text-align:center;min-height:48px;">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">快捷键开关</div><div class="setting-desc">关闭防止误触</div></div>
+        <label class="toggle"><input type="checkbox" id="cfgShortcutEnabled" onchange="updateSetting('shortcutEnabled', this.checked)"><span class="slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">自定义分值</div><div class="setting-desc">独立配置各题型每题分值</div></div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">单选题每题分值</div></div>
+        <input type="number" id="cfgScoreSingle" value="1" min="1" max="20" onchange="updateSetting('scoreSingle', parseInt(this.value))" style="width:80px;min-height:48px;">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">多选题每题分值</div></div>
+        <input type="number" id="cfgScoreMulti" value="1" min="1" max="20" onchange="updateSetting('scoreMulti', parseInt(this.value))" style="width:80px;min-height:48px;">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">判断题每题分值</div></div>
+        <input type="number" id="cfgScoreJudge" value="1" min="1" max="10" onchange="updateSetting('scoreJudge', parseInt(this.value))" style="width:80px;min-height:48px;">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">计算题每题分值</div></div>
+        <input type="number" id="cfgScoreCalc" value="1" min="1" max="30" onchange="updateSetting('scoreCalc', parseInt(this.value))" style="width:80px;min-height:48px;">
+      </div>
+      <button class="btn btn-sm" onclick="resetScores()">🔄 恢复默认分值</button>
+    </div>
+  </div>
+  <!-- 5. 数据备份 -->
+  <div class="card">
+    <div class="setting-group">
+      <h3>💾 数据备份与存储</h3>
+      <div class="setting-row">
+        <div><div class="setting-label">导出全部数据</div><div class="setting-desc">将所有分片localStorage数据打包为JSON文件</div></div>
+        <button class="btn btn-sm btn-primary" onclick="exportData()">📤 一键导出</button>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">复制备份文本</div><div class="setting-desc">复制JSON数据到剪贴板，可粘贴保存到任意位置</div></div>
+        <button class="btn btn-sm" onclick="copyData()">📋 复制备份</button>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">导入备份数据</div><div class="setting-desc">粘贴备份JSON一键恢复全量数据（导入前请备份当前数据）</div></div>
+        <button class="btn btn-sm btn-warning" style="background:var(--warning);color:#fff;border-color:var(--warning);" onclick="showImport()">📥 导入数据</button>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">题库缓存</div><div class="setting-desc">清除强制下次从question.js重新加载</div></div>
+        <button class="btn btn-sm" onclick="clearCache()">🗑️ 清除缓存</button>
+      </div>
+    </div>
+  </div>
+  <!-- 6. PDF导入题目 -->
+  <div class="card">
+    <div class="setting-group">
+      <h3>📥 PDF导入题目</h3>
+      <div class="setting-row">
+        <div><div class="setting-label">题目归属章节</div><div class="setting-desc">导入题目的章节名（PDF内若有"第X章"标题则自动覆盖）</div></div>
+        <input type="text" id="pdfChapterInput" value="PDF导入" placeholder="章节名" style="width:140px;min-height:48px;">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">选择PDF文件</div><div class="setting-desc">提取文字并解析题目，预览确认后入库（自动跳过重复题）</div></div>
+        <input type="file" id="pdfFileInput" accept=".pdf,application/pdf" onchange="PdfImport.handleFileSelect(this)" style="max-width:220px;">
+      </div>
+      <div id="pdfImportStatus" style="font-size:0.85em;color:var(--text-secondary);min-height:1.2em;margin:4px 0;"></div>
+      <details style="margin:8px 0;font-size:0.8em;color:var(--text-secondary);">
+        <summary style="cursor:pointer;">📄 支持的PDF题目格式（点开查看）</summary>
+        <div style="padding:8px 12px;line-height:1.8;">
+          <div>1. 单选：题号+题干（ ），A. B. C. D.选项（可同行/分行），"答案：B"，可选"解析：…"；</div>
+          <div>2. 判断：题干 + "答案：正确/错误/对/错/√/×"；</div>
+          <div>3. 计算：题干 + "答案：任意文字"（无选项自动识别）；</div>
+          <div>4. 也支持答案内嵌在题干括号中，如"题干（ B ）"；</div>
+          <div>5. 扫描版（图片型）PDF无法提取文字，暂不支持。</div>
+        </div>
+      </details>
+      <div class="setting-row">
+        <div><div class="setting-label">已导入题数</div><div class="setting-desc">当前通过PDF导入的题目数量：<b id="pdfImportedCount">0</b> 题</div></div>
+        <button class="btn btn-sm btn-danger" onclick="PdfImport.clearImported()">🗑️ 清空全部题库</button>
+      </div>
+    </div>
+  </div>
+  <!-- 7. 高危操作 -->
+  <div class="card" style="border-color:var(--danger);">
+    <div class="setting-group" style="border-bottom:none;">
+      <h3 style="color:var(--danger);">⚠️ 高危操作区</h3>
+      <p style="font-size:0.8em;color:var(--danger);margin-bottom:12px;">以下操作均为不可逆操作，请谨慎执行！</p>
+      <div class="btn-group">
+        <button class="btn btn-danger" onclick="resetAll()">💣 一键重置全部数据</button>
+        <button class="btn btn-danger" onclick="resetConfig()">🔄 恢复出厂默认设置</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- 导入弹窗 -->
+<div id="importModal" class="modal-overlay">
+  <div class="modal">
+    <h3>📥 导入备份数据</h3>
+    <div class="modal-body">
+      <p style="color:var(--danger);margin-bottom:8px;">⚠️ 此操作将覆盖当前所有数据（配置/答题记录/错题/计时），不可撤销！</p>
+      <textarea id="importDataText" placeholder="请粘贴之前导出的JSON备份数据..." style="width:100%;min-height:150px;font-family:monospace;font-size:0.8em;"></textarea>
+    </div>
+    <div class="btn-group">
+      <button class="btn" onclick="document.getElementById('importModal').classList.remove('active')">取消</button>
+      <button class="btn btn-danger" onclick="doImport()">确认导入并覆盖</button>
+    </div>
+  </div>
+</div>
+<!-- PDF导入预览弹窗 -->
+<div id="pdfPreviewModal" class="modal-overlay">
+  <div class="modal" style="max-width:560px;">
+    <h3>📥 PDF题目预览</h3>
+    <div class="modal-body" id="pdfPreviewBody"></div>
+    <div class="btn-group">
+      <button class="btn" onclick="document.getElementById('pdfPreviewModal').classList.remove('active')">取消</button>
+      <button class="btn btn-primary" onclick="PdfImport.confirmImport()">✅ 确认导入</button>
+    </div>
+  </div>
+</div>
+<div class="toast"></div>
+<script src="js/storage.js"></script>
+<script src="js/question.js"></script>
+<script src="js/common.js"></script>
+<script src="js/lib/pdf.min.js"></script>
+<script src="js/pdf-import.js"></script>
+<script>
+function loadSettings() {
+  const cfg = Storage.getConfig();
+  document.getElementById('cfgTheme').checked = cfg.theme === 'dark';
+  document.getElementById('cfgFontSize').value = cfg.fontSize;
+  document.getElementById('cfgFormulaMono').checked = cfg.formulaMono;
+  document.getElementById('cfgAnimation').checked = cfg.animation;
+  document.getElementById('cfgTimerEnabled').checked = cfg.timerEnabled;
+  document.getElementById('cfgTimePerQuestion').value = cfg.timePerQuestion;
+  document.getElementById('cfgTimeoutWarn').checked = cfg.timeoutWarn;
+  document.getElementById('cfgTimeoutMarkError').checked = cfg.timeoutMarkError;
+  document.getElementById('cfgTimerSound').checked = cfg.timerSound;
+  document.getElementById('cfgSoundCorrect').checked = cfg.soundCorrect;
+  document.getElementById('cfgSoundWrong').checked = cfg.soundWrong;
+  document.getElementById('cfgSoundTimeout').checked = cfg.soundTimeout;
+  document.getElementById('cfgAutoCleanErrors').checked = cfg.autoCleanErrors;
+  document.getElementById('cfgAutoArchive').checked = cfg.autoArchive;
+  document.getElementById('cfgArchiveDays').value = cfg.archiveDays;
+  document.getElementById('cfgWeakThreshold').value = cfg.weakThreshold;
+  document.getElementById('cfgAutoNextDelay').value = cfg.autoNextDelay || 300;
+  document.getElementById('cfgShuffleOptions').checked = cfg.shuffleOptions;
+  document.getElementById('cfgShortcutEnabled').checked = cfg.shortcutEnabled;
+  document.getElementById('cfgScoreSingle').value = cfg.scoreSingle;
+  document.getElementById('cfgScoreMulti').value = cfg.scoreMulti ?? 1;
+  document.getElementById('cfgScoreJudge').value = cfg.scoreJudge;
+  document.getElementById('cfgScoreCalc').value = cfg.scoreCalc;
+}
+function updateSetting(key, value) {
+  Storage.updateConfig(key, value);
+  App.applyAllSettings();
+  updateOverview(); // 概览同步刷新
+  App.showToast('已保存', 'success');
+}
+/** 全局设置概览：当前配置与学习数据摘要 */
+function updateOverview() {
+  const cfg = Storage.getConfig();
+  document.getElementById('ovTheme').textContent = cfg.theme === 'dark' ? '深色' : '浅色';
+  document.getElementById('ovFont').textContent = ({ standard: '标准', large: '放大', xlarge: '超大' })[cfg.fontSize] || '标准';
+  const stats = App.getStats();
+  document.getElementById('ovBank').textContent = stats.total;
+  document.getElementById('ovDone').textContent = stats.done;
+  document.getElementById('ovRate').textContent = stats.correctRate + '%';
+  // 统计有作答进度的可恢复练习会话数
+  const pools = ['all', 'wrong', 'weak', 'type-single', 'type-multi', 'type-judge', 'type-calc'];
+  let resumable = 0;
+  pools.forEach(p => ['seq', 'random'].forEach(o => {
+    const s = Storage.getSession(p + '-' + o);
+    if (s && Object.keys(s.answered || {}).length > 0) resumable++;
+  }));
+  document.getElementById('ovSession').textContent = resumable;
+}
+function resetScores() {
+  Storage.updateConfig('scoreSingle', 1);
+  Storage.updateConfig('scoreMulti', 1);
+  Storage.updateConfig('scoreJudge', 1);
+  Storage.updateConfig('scoreCalc', 1);
+  document.getElementById('cfgScoreSingle').value = 1;
+  document.getElementById('cfgScoreMulti').value = 1;
+  document.getElementById('cfgScoreJudge').value = 1;
+  document.getElementById('cfgScoreCalc').value = 1;
+  App.showToast('✅ 已恢复默认分值', 'success');
+}
+function exportData() {
+  const data = Storage.exportAll();
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '通信原理刷题备份_' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  App.showToast('✅ 备份已下载', 'success');
+}
+function copyData() {
+  const data = Storage.exportAll();
+  navigator.clipboard.writeText(data).then(() => {
+    App.showToast('✅ 备份文本已复制到剪贴板', 'success');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = data;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    App.showToast('✅ 备份文本已复制到剪贴板', 'success');
+  });
+}
+function showImport() {
+  document.getElementById('importModal').classList.add('active');
+  document.getElementById('importDataText').value = '';
+}
+function doImport() {
+  const text = document.getElementById('importDataText').value.trim();
+  if (!text) { App.showToast('请先粘贴备份数据', 'error'); return; }
+  const success = Storage.importAll(text);
+  if (success) {
+    document.getElementById('importModal').classList.remove('active');
+    App.showToast('✅ 数据导入成功！页面将刷新', 'success');
+    setTimeout(() => {
+      App.applyAllSettings();
+      loadSettings();
+    }, 1000);
+  } else {
+    App.showToast('❌ 数据格式错误，导入失败', 'error');
+  }
+}
+function clearCache() {
+  Storage.clearCache();
+  App.showToast('✅ 题库缓存已清除，下次访问将重新加载', 'success');
+}
+function resetAll() {
+  App.showModal('💣 一键重置全部数据', '此操作将永久删除所有数据：配置、答题记录、错题、计时记录、题库缓存。此操作不可恢复！确定吗？', () => {
+    Storage.resetAll();
+    App.showToast('✅ 已重置全部数据，页面即将刷新', 'success');
+    setTimeout(() => location.reload(), 1500);
+  }, '确认全部重置', true);
+}
+function resetConfig() {
+  App.showModal('🔄 恢复出厂设置', '将恢复所有设置为默认值（不影响答题/错题/计时数据）。确定吗？', () => {
+    Storage.resetConfig();
+    loadSettings();
+    App.applyAllSettings();
+    App.showToast('✅ 已恢复出厂默认设置', 'success');
+  }, '确认恢复默认', true);
+}
+document.addEventListener('DOMContentLoaded', () => {
+  loadSettings();
+  updateOverview();
+  PdfImport.refreshImportedCount();
+});
+</script>
+</body>
+</html>

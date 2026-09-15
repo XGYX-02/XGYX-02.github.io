@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>错题本</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='24' font-size='28'>📋</text></svg>">
+</head>
+<body>
+<div class="container">
+  <nav class="nav"></nav>
+  <div class="card">
+    <div class="card-header"><span class="card-title">📋 错题本</span></div>
+    <div id="errorProgress"></div>
+  </div>
+  <!-- 筛选区 -->
+  <div class="card">
+    <div class="filter-bar">
+      <select id="filterType" onchange="refreshPage()">
+        <option value="all">全部题型</option>
+        <option value="single">单选错题</option>
+        <option value="multi">多选错题</option>
+        <option value="judge">判断错题</option>
+        <option value="calc">计算错题</option>
+      </select>
+      <select id="filterMode" onchange="refreshPage()">
+        <option value="all">全部错题</option>
+        <option value="recent">近N次新增</option>
+        <option value="continuous">连续错题</option>
+      </select>
+      <select id="sortOrder" onchange="refreshPage()">
+        <option value="freq">答错次数从高到低</option>
+        <option value="recent">最近答错优先</option>
+      </select>
+      <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+        <span style="font-size:0.9em;">显示答案</span>
+        <span class="toggle">
+          <input type="checkbox" id="showAnswerToggle" onchange="toggleShowAnswer()">
+          <span class="slider"></span>
+        </span>
+      </label>
+    </div>
+  </div>
+  <!-- 操作区 -->
+  <div class="card" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <div class="btn-group">
+      <button class="btn btn-sm" onclick="selectAll()">☑️ 全选</button>
+      <button class="btn btn-sm" onclick="invertSelect()">🔄 反选</button>
+      <button class="btn btn-sm btn-danger" onclick="batchRemove()">🗑️ 批量移除</button>
+      <button class="btn btn-sm" onclick="batchExport()">📤 批量导出题目文本</button>
+    </div>
+    <div class="btn-group">
+      <a href="exam.html?mode=wrong" class="btn btn-primary btn-sm">🔄 顺序重做全部</a>
+      <a href="exam.html?mode=wrong_random" class="btn btn-success btn-sm">🎲 随机重做全部</a>
+      <button class="btn btn-sm btn-danger" onclick="clearAllErrors()">⚠️ 清空全部错题</button>
+    </div>
+  </div>
+  <!-- 错题列表 -->
+  <div id="errorList"></div>
+  <div id="loadMoreSentinel"></div>
+</div>
+<div class="toast"></div>
+<script src="js/storage.js"></script>
+<script src="js/question.js"></script>
+<script src="js/common.js"></script>
+<script>
+let errorItems = [];
+let displayPage = 0;
+let selectedIds = new Set();
+// ===== HTML转义：题干/选项/答案含 < > & 等符号时防渲染错乱 =====
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function getErrorItems() {
+  const errIds = Storage.getErrors();
+  const questions = App.validQuestions();
+  const records = Storage.getRecords();
+  const filterType = document.getElementById('filterType').value;
+  const filterMode = document.getElementById('filterMode').value;
+  const sortOrder = document.getElementById('sortOrder').value;
+  let items = errIds.map(id => {
+    const q = questions.find(qq => qq.id === id);
+    if (!q) return null;
+    const r = records[id] || { correct: 0, wrong: 0, history: [] };
+    return { ...q, record: r };
+  }).filter(Boolean);
+  // 题型筛选
+  if (filterType !== 'all') items = items.filter(q => q.type === filterType);
+  // 模式筛选
+  if (filterMode === 'recent') {
+    items = items.filter(q => {
+      const h = q.record.history;
+      return h.length > 0 && h[h.length - 1].correct === false;
+    });
+  }
+  if (filterMode === 'continuous') {
+    items = items.filter(q => {
+      const h = q.record.history;
+      if (h.length < 2) return false;
+      return h[h.length - 1].correct === false && h[h.length - 2].correct === false;
+    });
+  }
+  // 排序
+  if (sortOrder === 'freq') {
+    items.sort((a, b) => b.record.wrong - a.record.wrong);
+  } else {
+    items.sort((a, b) => {
+      const ta = a.record.history.length ? a.record.history[a.record.history.length - 1].time : 0;
+      const tb = b.record.history.length ? b.record.history[b.record.history.length - 1].time : 0;
+      return tb - ta;
+    });
+  }
+  return items;
+}
+function refreshPage() {
+  errorItems = getErrorItems();
+  displayPage = 0;
+  selectedIds.clear();
+  document.getElementById('errorList').innerHTML = '';
+  renderPage();
+  updateProgress();
+}
+function toggleShowAnswer() {
+  const cfg = Storage.getConfig();
+  cfg.wrongShowAnswer = document.getElementById('showAnswerToggle').checked;
+  Storage.saveConfig(cfg);
+  refreshPage();
+}
+function renderPage() {
+  const container = document.getElementById('errorList');
+  const page = App.getPageItems(errorItems, displayPage);
+  const showAnswer = Storage.getConfig().wrongShowAnswer;
+  const html = page.map(q => {
+    const selected = selectedIds.has(q.id);
+    const badgeClass = { single: 'badge-single', multi: 'badge-multi', judge: 'badge-judge', calc: 'badge-calc' }[q.type] || 'badge-calc';
+    const typeLabel = { single: '单选', multi: '多选', judge: '判断', calc: '计算' }[q.type] || q.type;
+    const answerText = q.type === 'judge' ? (q.answer === 'A' ? '对' : '错') : q.answer;
+    const answerHTML = showAnswer
+      ? `<div style="margin:4px 0;font-size:0.9em;color:var(--success);font-weight:600;">✅ 答案：${escapeHtml(answerText)}</div>`
+      : '';
+    const optionsHTML = (q.type === 'single' || q.type === 'multi') && q.options
+      ? `<div style="margin:4px 0;font-size:0.9em;color:var(--text-secondary);">${q.options.map(o => `${o.key}. ${escapeHtml(o.text)}`).join('<br>')}</div>`
+      : '';
+    return `<div class="card" style="padding:10px;">
+      <div style="display:flex;align-items:flex-start;gap:8px;">
+        <input type="checkbox" ${selected ? 'checked' : ''} onchange="toggleSelect(${q.id})" style="min-width:24px;min-height:24px;margin-top:4px;">
+        <div style="flex:1;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+            <span><span class="badge ${badgeClass}">${typeLabel}</span> <strong>#${q.id}</strong></span>
+            <span style="font-size:0.75em;">❌ ${q.record.wrong}次 | ✅ ${q.record.correct}次</span>
+          </div>
+          <div style="margin:4px 0;font-size:0.95em;">${escapeHtml(q.question)}</div>
+          ${optionsHTML}
+          ${answerHTML}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+        <button class="btn btn-sm" onclick="toggleHistory(${q.id})">📜 历史</button>
+        <button class="btn btn-sm btn-danger" onclick="removeSingle(${q.id})">🗑️ 移除</button>
+      </div>
+      <div class="collapsible-content" id="hist-${q.id}">
+        ${getHistoryHTML(q)}
+      </div>
+    </div>`;
+  }).join('');
+  container.innerHTML += html;
+  displayPage++;
+  // 懒加载触底
+  if (displayPage * App.PAGE_SIZE < errorItems.length) {
+    setupLoadMore();
+  }
+}
+function getHistoryHTML(q) {
+  if (!q.record.history || q.record.history.length === 0) return '<p style="font-size:0.8em;color:var(--text-secondary);">暂无历史记录</p>';
+  return q.record.history.slice(-10).reverse().map(h => {
+    const d = new Date(h.time);
+    return `<div class="history-item">
+      <span>${d.toLocaleDateString()} ${d.toLocaleTimeString()}</span>
+      <span>${h.correct ? '✅' : '❌'} · ${h.duration}s</span>
+    </div>`;
+  }).join('');
+}
+function toggleHistory(qid) {
+  const el = document.getElementById('hist-' + qid);
+  if (el) el.classList.toggle('open');
+}
+function toggleSelect(qid) {
+  if (selectedIds.has(qid)) selectedIds.delete(qid);
+  else selectedIds.add(qid);
+}
+function selectAll() {
+  errorItems.forEach(q => selectedIds.add(q.id));
+  refreshPage();
+}
+function invertSelect() {
+  errorItems.forEach(q => {
+    if (selectedIds.has(q.id)) selectedIds.delete(q.id);
+    else selectedIds.add(q.id);
+  });
+  refreshPage();
+}
+function removeSingle(qid) {
+  Storage.removeError(qid);
+  App.showToast('已移出错题本', 'success');
+  refreshPage();
+}
+function batchRemove() {
+  if (selectedIds.size === 0) { App.showToast('请先选择错题', 'error'); return; }
+  App.showModal('批量移除错题', `确定要移除选中的 ${selectedIds.size} 道错题吗？`, () => {
+    Storage.batchRemoveErrors([...selectedIds]);
+    selectedIds.clear();
+    App.showToast('已批量移除', 'success');
+    refreshPage();
+  }, '确认移除', true);
+}
+function batchExport() {
+  const ids = selectedIds.size > 0 ? [...selectedIds] : errorItems.map(q => q.id);
+  const questions = App.validQuestions();
+  const texts = ids.map(id => {
+    const q = questions.find(qq => qq.id === id);
+    if (!q) return '';
+    let text = `【${{ single: '单选题', multi: '多选题', judge: '判断题', calc: '计算题' }[q.type] || '题目'}】#${q.id}\n${q.question}\n`;
+    if ((q.type === 'single' || q.type === 'multi') && q.options) text += q.options.map(o => `${o.key}. ${o.text}`).join('\n') + '\n';
+    text += `答案：${q.type === 'judge' ? (q.answer === 'A' ? '对' : '错') : q.answer}\n`;
+    if (q.explanation) text += `解析：${q.explanation}\n`;
+    return text + '\n---\n';
+  }).join('\n');
+  // 复制到剪贴板
+  navigator.clipboard.writeText(texts).then(() => {
+    App.showToast('已复制到剪贴板', 'success');
+  }).catch(() => {
+    // 降级：创建临时textarea
+    const ta = document.createElement('textarea');
+    ta.value = texts;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    App.showToast('已复制到剪贴板', 'success');
+  });
+}
+function clearAllErrors() {
+  App.showModal('⚠️ 清空全部错题', '此操作将永久删除所有错题记录，不可恢复！确定要继续吗？', () => {
+    Storage.clearErrors();
+    selectedIds.clear();
+    App.showToast('✅ 已清空全部错题', 'success');
+    refreshPage();
+  }, '确认清空', true);
+}
+function updateProgress() {
+  const total = App.validQuestions().length;
+  const errCount = errorItems.length;
+  const done = Object.keys(Storage.getRecords()).length;
+  const answered = {};
+  App.validQuestions().forEach(q => {
+    const r = Storage.getRecords()[q.id];
+    if (r) answered[q.id] = r.correct > r.wrong;
+  });
+  // 错题进度单独渲染
+  const container = document.getElementById('errorProgress');
+  const records = Storage.getRecords();
+  const errAnswered = {};
+  errorItems.forEach(q => {
+    const r = records[q.id];
+    if (r) errAnswered[q.id] = r.correct > r.wrong;
+  });
+  App.renderProgress(container, errAnswered);
+}
+function setupLoadMore() {
+  const sentinel = document.getElementById('loadMoreSentinel');
+  if (!sentinel) return;
+  const observer = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting && displayPage * App.PAGE_SIZE < errorItems.length) {
+      renderPage();
+    }
+  }, { rootMargin: '200px' });
+  observer.observe(sentinel);
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('showAnswerToggle').checked = Storage.getConfig().wrongShowAnswer;
+  refreshPage();
+});
+</script>
+</body>
+</html>

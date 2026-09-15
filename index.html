@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>首页</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="container">
+  <!-- 导航（common.js统一渲染） -->
+  <nav class="nav"></nav>
+  <!-- 统计看板 -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">📊 学习统计</span></div>
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-item"><div class="stat-value" id="statTotal">0</div><div class="stat-label">总题量</div></div>
+      <div class="stat-item"><div class="stat-value" id="statDone">0</div><div class="stat-label">已做题</div></div>
+      <div class="stat-item"><div class="stat-value" id="statRate">0%</div><div class="stat-label">正确率</div></div>
+      <div class="stat-item"><div class="stat-value" id="statScore">0</div><div class="stat-label">总分</div></div>
+      <div class="stat-item"><div class="stat-value" id="statErrors">0</div><div class="stat-label">错题</div></div>
+      <div class="stat-item"><div class="stat-value" id="statWeak">0</div><div class="stat-label">薄弱题</div></div>
+    </div>
+  </div>
+  <!-- 全局进度条 -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">📈 全局进度</span></div>
+    <div id="globalProgress"></div>
+  </div>
+  <!-- 刷题入口 -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">🚀 刷题入口</span></div>
+    <div class="btn-group">
+      <a href="exam.html?mode=seq" class="btn btn-primary" id="entrySeq">📖 全部顺序刷题</a>
+      <a href="exam.html?mode=random" class="btn" id="entryAll" style="background:var(--accent);color:#fff;border-color:var(--accent);">🎲 全部随机刷题</a>
+      <a href="exam.html?type=single" class="btn" id="entrySingle">📝 单选题</a>
+      <a href="exam.html?type=multi" class="btn" id="entryMulti" style="background:#8b5cf6;color:#fff;border-color:#8b5cf6;">☑️ 多选题</a>
+      <a href="exam.html?type=judge" class="btn btn-success" id="entryJudge">✅ 判断题</a>
+      <a href="exam.html?type=calc" class="btn btn-warning" id="entryCalc" style="background:var(--warning);color:#fff;border-color:var(--warning);">🔢 计算题</a>
+      <a href="exam.html?mode=weak" class="btn btn-danger" id="weakBtn">🎯 薄弱题目专项</a>
+    </div>
+  </div>
+  <!-- 快捷入口 -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">📋 快捷工具</span></div>
+    <div class="btn-group">
+      <a href="wrong.html" class="btn">📋 错题本</a>
+      <a href="setting.html" class="btn">⚙️ 设置面板</a>
+    </div>
+  </div>
+</div>
+<!-- 弹窗 -->
+<div class="modal-overlay" style="display:none;">
+  <div class="modal"><h3></h3><div class="modal-body"></div><div class="btn-group"><button class="btn btn-cancel">取消</button><button class="btn btn-confirm">确认</button></div></div>
+</div>
+<!-- Toast -->
+<div class="toast" style="display:none;"></div>
+<script src="js/storage.js"></script>
+<script src="js/question.js"></script>
+<script src="js/common.js"></script>
+<script>
+// ===== 初始化统计 =====
+function updateStats() {
+  const stats = App.getStats();
+  document.getElementById('statTotal').textContent = stats.total;
+  document.getElementById('statDone').textContent = stats.done;
+  document.getElementById('statRate').textContent = stats.correctRate + '%';
+  document.getElementById('statScore').textContent = stats.score;
+  document.getElementById('statErrors').textContent = stats.errorCount;
+  document.getElementById('statWeak').textContent = stats.weakCount;
+  // 刷题入口：按题型实时统计题数（含PDF导入题），始终显示，0题时置灰提示导入
+  const typeCounts = { single: 0, multi: 0, judge: 0, calc: 0 };
+  App.validQuestions().forEach(q => { typeCounts[q.type] = (typeCounts[q.type] || 0) + 1; });
+  const entryMeta = {
+    entrySingle: ['📝 单选题', 'single'],
+    entryMulti: ['☑️ 多选题', 'multi'],
+    entryJudge: ['✅ 判断题', 'judge'],
+    entryCalc: ['🔢 计算题', 'calc']
+  };
+  Object.entries(entryMeta).forEach(([id, [label, type]]) => {
+    const el = document.getElementById(id);
+    el.style.display = '';
+    el.textContent = `${label} (${typeCounts[type]}题)`;
+    el.style.opacity = typeCounts[type] > 0 ? '' : '0.5';
+    el.title = typeCounts[type] > 0 ? '' : '该题型暂无题目，可在设置页通过PDF导入';
+  });
+  const totalAll = Object.values(typeCounts).reduce((s, n) => s + n, 0);
+  document.getElementById('entrySeq').textContent = `📖 全部顺序刷题 (${totalAll}题)`;
+  document.getElementById('entryAll').textContent = `🎲 全部随机刷题 (${totalAll}题)`;
+  // 薄弱题数量
+  const weakBtn = document.getElementById('weakBtn');
+  weakBtn.textContent = `🎯 薄弱题目专项 (${stats.weakCount}题)`;
+  if (stats.weakCount === 0) weakBtn.classList.add('btn');
+  // 全局进度
+  const records = Storage.getRecords();
+  const answered = {};
+  App.getQuestions().forEach(q => {
+    const r = records[q.id];
+    if (r && (r.correct > 0 || r.wrong > 0)) {
+      answered[q.id] = r.correct > r.wrong;
+    }
+  });
+  App.renderProgress(document.getElementById('globalProgress'), answered);
+}
+// ===== 页面初始化 =====
+document.addEventListener('DOMContentLoaded', () => {
+  updateStats();
+});
+</script>
+</body>
+</html>
