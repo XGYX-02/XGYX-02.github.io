@@ -530,9 +530,10 @@ select { min-width: 120px; cursor: pointer; }
 .tab-item.active { color: var(--primary); font-weight: 600; }
 /* 筛选工具条内的题型徽章（刷题页，触控友好） */
 .filter-bar .badge { font-size: 0.9em; padding: 6px 14px; cursor: pointer; }
-/* 触屏设备无键盘：隐藏快捷键提示条，改为显示滑动切题提示 */
+/* 触屏设备无键盘：隐藏快捷键提示条，改为显示滑动切题提示
+   判断放宽为"粗指针 或 无hover"：部分移动浏览器对 pointer/hover 上报不一致 */
 #touchHint { display: none; }
-@media (hover: none) and (pointer: coarse) {
+@media (pointer: coarse), (hover: none) {
   #shortcutHint { display: none; }
   #touchHint { display: inline; }
 }
@@ -756,3 +757,12 @@ select { min-width: 120px; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   #questionCard.slide-next, #questionCard.slide-prev { animation: none; }
 }
+/* ===== 防页面横向拖动 ===== */
+/* 滑入动画期间卡片会短暂超出屏幕边缘，把文档撑宽导致整页可被左右拖动；
+   clip 直接裁剪横向溢出且不产生滚动容器，不影响桌面端 sticky 顶栏 */
+/* 不支持 clip 的老移动浏览器先回退为 hidden（移动端无 sticky 元素，无副作用）；
+   支持 clip 的浏览器由后面的规则覆盖回 clip */
+@media (hover: none) and (pointer: coarse) {
+  html, body { overflow-x: hidden; }
+}
+html, body { overflow-x: clip; }
