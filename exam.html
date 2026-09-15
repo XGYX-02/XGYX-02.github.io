@@ -289,7 +289,16 @@ function getDebounceDelay() {
   return cfg.autoNextDelay ?? 300;
 }
 // ===== 渲染题目 =====
-function renderQuestion() {
+function renderQuestion(slideDir) {
+  // 切题过渡动画：slideDir>0 新题从右滑入（下一题/左滑），<0 从左滑入（上一题/右滑）
+  const qCard = document.getElementById('questionCard');
+  if (qCard) {
+    qCard.classList.remove('slide-next', 'slide-prev');
+    if (slideDir) {
+      void qCard.offsetWidth; // 强制重排以重启动画
+      qCard.classList.add(slideDir > 0 ? 'slide-next' : 'slide-prev');
+    }
+  }
   if (!questions.length) {
     document.getElementById('qQuestion').textContent = '暂无题目';
     return;
@@ -650,8 +659,9 @@ function handleShortcut(e) {
     const examArea = document.getElementById('examArea');
     if (!examArea || examArea.style.display === 'none') return;
     if (document.querySelector('.modal-overlay.active')) return;
-    // 从按钮/输入框/答题卡等交互元素上开始的触摸不作为滑动，避免误触
-    if (e.target.closest('button, textarea, input, select, a, .qcard-grid')) return;
+    // 从输入框/答题卡等交互元素上开始的触摸不作为滑动；选项按钮上的横向滑动同样有效
+    // （大幅位移的触摸不会触发click，轻点选项仍正常答题）
+    if (e.target.closest('textarea, input, select, a, .qcard-grid')) return;
     tracking = true;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
@@ -675,7 +685,7 @@ function prevQuestion() {
   App.stopTimer();
   if (currentIndex > 0) currentIndex--; else currentIndex = questions.length - 1;
   showAnswer = answered[questions[currentIndex]?.id] !== undefined;
-  renderQuestion();
+  renderQuestion(-1);
 }
 function nextQuestion() {
   App.cancelDebounce();
@@ -689,7 +699,7 @@ function nextQuestion() {
     currentIndex++;
   }
   showAnswer = answered[questions[currentIndex]?.id] !== undefined;
-  renderQuestion();
+  renderQuestion(1);
 }
 // ===== 练习完成总结 =====
 let summaryShown = false; // 本轮是否已展示过总结（关闭后继续浏览不再重复弹出）
@@ -765,9 +775,10 @@ function jumpTo(i) {
   if (i < 0 || i >= questions.length) return;
   App.cancelDebounce();
   App.stopTimer();
+  const slideDir = i > currentIndex ? 1 : -1;
   currentIndex = i;
   showAnswer = answered[questions[i]?.id] !== undefined;
-  renderQuestion();
+  renderQuestion(slideDir);
 }
 // ===== 历史记录 =====
 function updateHistory() {

@@ -741,3 +741,18 @@ select { min-width: 120px; cursor: pointer; }
   .container { max-width: 1080px; }
   .stats-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
 }
+/* ===== 切题滑动过渡（滑动/按键/答题卡跳转时，新题卡片方向性滑入） ===== */
+#questionCard.slide-next { animation: qSlideNext 0.24s ease-out; }
+#questionCard.slide-prev { animation: qSlidePrev 0.24s ease-out; }
+@keyframes qSlideNext {
+  from { transform: translateX(min(15vw, 96px)); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+@keyframes qSlidePrev {
+  from { transform: translateX(-min(15vw, 96px)); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+/* 系统开启"减弱动态效果"时禁用切题动画 */
+@media (prefers-reduced-motion: reduce) {
+  #questionCard.slide-next, #questionCard.slide-prev { animation: none; }
+}
