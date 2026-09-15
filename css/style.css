@@ -26,7 +26,6 @@
   --font-mono: 'Courier New', 'Consolas', monospace;
   --font-size: 15px;
   --transition: 0.2s ease;
-  --img-brightness: 1;
   /* 公式等宽 */
   --formula-family: inherit;
   /* 玻璃拟态 */
@@ -54,45 +53,6 @@
 .anim-off *, .anim-off *::before, .anim-off *::after {
   transition-duration: 0s !important;
   animation-duration: 0s !important;
-}
-/* ===== 深色主题 ===== */
-[data-theme="dark"] {
-  --bg: #121319;
-  --bg-card: #242428;
-  --bg-input: #2e2e33;
-  --text: #e8e6e3;
-  --text-secondary: #a8a6a2;
-  --border: #3a3a40;
-  --primary: #8ab4d8;
-  --primary-light: #2a3a4a;
-  --success: #7dba93;
-  --success-light: #2a3a30;
-  --danger: #d4948a;
-  --danger-light: #3a2a28;
-  --warning: #d4b87a;
-  --warning-light: #3a3528;
-  --accent: #b09ad8;
-  --shadow: 0 2px 6px rgba(0,0,0,0.35);
-  --shadow-md: 0 8px 24px rgba(0,0,0,0.45);
-  --shadow-lg: 0 16px 48px rgba(0,0,0,0.55);
-  --img-brightness: 0.7;
-  /* 玻璃拟态（深色） */
-  --glass-bg: rgba(28,30,42,0.55);
-  --glass-bg-strong: rgba(28,30,42,0.75);
-  --glass-border: rgba(255,255,255,0.12);
-  --glass-highlight: rgba(255,255,255,0.08);
-  /* 深色极光光斑：更饱和的霓虹感 */
-  --blob-1: rgba(80,140,220,0.26);
-  --blob-2: rgba(140,110,230,0.22);
-  --blob-3: rgba(70,200,160,0.15);
-  --blob-4: rgba(230,120,140,0.13);
-  --grain-opacity: 0.06;
-}
-[data-theme="dark"] img, [data-theme="dark"] .q-image {
-  filter: brightness(var(--img-brightness));
-}
-[data-theme="dark"] input, [data-theme="dark"] textarea, [data-theme="dark"] select {
-  color: var(--text);
 }
 /* ===== 全局重置 ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -487,17 +447,6 @@ select { min-width: 120px; cursor: pointer; }
 }
 .nav-item:hover { background: var(--primary-light); color: var(--primary); text-decoration: none; }
 .nav-item.active { background: var(--primary); color: #fff; font-weight: 600; }
-.nav-theme {
-  min-width: 40px;
-  min-height: 40px;
-  border-radius: 50%;
-  border: 1px solid var(--glass-border);
-  background: var(--glass-bg);
-  cursor: pointer;
-  font-size: 1em;
-  transition: all var(--transition);
-}
-.nav-theme:hover { background: var(--primary-light); transform: rotate(15deg); }
 /* ===== 底部Tab栏（仅手机端显示，拇指可达） ===== */
 .tabbar {
   display: none;

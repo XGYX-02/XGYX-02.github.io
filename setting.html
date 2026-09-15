@@ -14,7 +14,6 @@
   <div class="card">
     <div class="card-header"><span class="card-title">⚙️ 全局设置</span></div>
     <div class="stats-grid" id="cfgOverview">
-      <div class="stat-item"><div class="stat-value" id="ovTheme">浅色</div><div class="stat-label">当前主题</div></div>
       <div class="stat-item"><div class="stat-value" id="ovFont">标准</div><div class="stat-label">字体大小</div></div>
       <div class="stat-item"><div class="stat-value" id="ovBank">0</div><div class="stat-label">题库总量</div></div>
       <div class="stat-item"><div class="stat-value" id="ovDone">0</div><div class="stat-label">已做题数</div></div>
@@ -26,11 +25,7 @@
   <!-- 1. 主题与视觉 -->
   <div class="card">
     <div class="setting-group">
-      <h3>🎨 主题与视觉设置</h3>
-      <div class="setting-row">
-        <div><div class="setting-label">深色模式</div><div class="setting-desc">夜间护眼，降低全局亮度</div></div>
-        <label class="toggle"><input type="checkbox" id="cfgTheme" onchange="updateSetting('theme', this.checked?'dark':'light')"><span class="slider"></span></label>
-      </div>
+      <h3>🎨 视觉设置</h3>
       <div class="setting-row">
         <div><div class="setting-label">字体大小</div></div>
         <select id="cfgFontSize" onchange="updateSetting('fontSize', this.value)" style="min-height:48px;">
@@ -244,7 +239,6 @@
 <script>
 function loadSettings() {
   const cfg = Storage.getConfig();
-  document.getElementById('cfgTheme').checked = cfg.theme === 'dark';
   document.getElementById('cfgFontSize').value = cfg.fontSize;
   document.getElementById('cfgFormulaMono').checked = cfg.formulaMono;
   document.getElementById('cfgAnimation').checked = cfg.animation;
@@ -277,7 +271,6 @@ function updateSetting(key, value) {
 /** 全局设置概览：当前配置与学习数据摘要 */
 function updateOverview() {
   const cfg = Storage.getConfig();
-  document.getElementById('ovTheme').textContent = cfg.theme === 'dark' ? '深色' : '浅色';
   document.getElementById('ovFont').textContent = ({ standard: '标准', large: '放大', xlarge: '超大' })[cfg.fontSize] || '标准';
   const stats = App.getStats();
   document.getElementById('ovBank').textContent = stats.total;

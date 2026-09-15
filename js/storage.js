@@ -17,7 +17,6 @@ const Storage = (() => {
   };
   // ===== 默认配置 =====
   const DEFAULT_CONFIG = {
-    theme: 'light',
     fontSize: 'standard',
     formulaMono: true,
     animation: true,

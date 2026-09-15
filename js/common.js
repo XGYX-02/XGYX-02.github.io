@@ -268,24 +268,6 @@ const App = (() => {
     document.body.appendChild(overlay);
     return overlay;
   }
-  // ===== 主题管理 =====
-  function applyTheme(theme) {
-    if (theme === 'dark') {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-    }
-    // 同步导航栏主题按钮图标（任何路径切换主题都保持一致）
-    const btn = document.getElementById('themeToggle');
-    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌓';
-  }
-  /** 切换深浅主题（导航内按钮触发） */
-  function toggleTheme() {
-    const cfg = Storage.getConfig();
-    cfg.theme = cfg.theme === 'dark' ? 'light' : 'dark';
-    Storage.saveConfig(cfg);
-    applyTheme(cfg.theme);
-  }
   // ===== 统一导航（全页同一结构：桌面吸顶毛玻璃横导航 + 手机底部Tab栏） =====
   const NAV_PAGES = [
     { key: 'index.html', icon: '🏠', label: '首页' },
@@ -298,7 +280,6 @@ const App = (() => {
   function renderNav() {
     const cur = location.pathname.split('/').pop() || 'index.html';
     const curPage = NAV_PAGES.find(p => p.key === cur) || NAV_PAGES[0];
-    const cfg = Storage.getConfig();
     const oldNav = document.querySelector('nav.nav');
     if (oldNav) {
       const nav = document.createElement('nav');
@@ -307,8 +288,7 @@ const App = (() => {
         `<span class="nav-title">${curPage.icon} ${curPage.label}</span>` +
         `<div class="nav-inner">` + NAV_PAGES.map(p =>
           `<a class="nav-item${p.key === curPage.key ? ' active' : ''}" href="${p.key}"><span>${p.icon}</span>${p.label}</a>`
-        ).join('') + `</div>` +
-        `<button class="nav-theme" id="themeToggle" title="切换深浅主题" onclick="App.toggleTheme()">${cfg.theme === 'dark' ? '☀️' : '🌓'}</button>`;
+        ).join('') + `</div>`;
       oldNav.replaceWith(nav);
     }
     if (!document.getElementById('mainTabbar')) {
@@ -341,7 +321,6 @@ const App = (() => {
   }
   function applyAllSettings() {
     const cfg = Storage.getConfig();
-    applyTheme(cfg.theme);
     applyFontSize(cfg.fontSize);
     applyFormulaMono(cfg.formulaMono);
     applyAnimation(cfg.animation);
@@ -360,10 +339,6 @@ const App = (() => {
       const placeholder = this.previousElementSibling;
       if (placeholder && placeholder.classList.contains('img-placeholder')) {
         placeholder.style.display = 'none';
-      }
-      const cfg = Storage.getConfig();
-      if (cfg.theme === 'dark') {
-        this.style.filter = 'brightness(0.7)';
       }
     };
   }
@@ -482,7 +457,6 @@ const App = (() => {
     searchQuestions,
     setupLazyLoad, getPageItems, PAGE_SIZE,
     showToast, playSound, showModal,
-    applyTheme, toggleTheme,
     applyFontSize, applyFormulaMono, applyAnimation, applyAllSettings,
     setupImageFallback, renderImage,
     getWeakQuestions, getStats,
