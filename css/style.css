@@ -18,6 +18,7 @@
   --warning: #c4a35a;
   --warning-light: #faf3e2;
   --accent: #8e7cc3;
+  --accent-light: #ece8f7;
   --shadow: 0 2px 6px rgba(91,112,168,0.08), 0 1px 2px rgba(0,0,0,0.06);
   --shadow-md: 0 8px 24px rgba(91,112,168,0.14), 0 2px 6px rgba(0,0,0,0.06);
   --shadow-lg: 0 16px 48px rgba(91,112,168,0.20), 0 4px 12px rgba(0,0,0,0.08);
@@ -169,12 +170,17 @@ a:hover { text-decoration: underline; }
 }
 .btn:hover { background: var(--primary-light); border-color: var(--primary); transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .btn:active { transform: scale(0.97); }
-.btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
-.btn-primary:hover { background: #4a6d94; }
-.btn-success { background: var(--success); color: #fff; border-color: var(--success); }
-.btn-success:hover { background: #5a8a6d; }
-.btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
-.btn-danger:hover { background: #b0746a; }
+/* 彩色按钮（柔和玻璃版）：浅色底+同色描边文字，与徽章/选项高亮同语言；悬停沉淀为实色 */
+.btn-primary { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+.btn-primary:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-accent { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+.btn-accent:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-success { background: var(--success-light); color: var(--success); border-color: var(--success); }
+.btn-success:hover { background: var(--success); color: #fff; border-color: var(--success); }
+.btn-warning { background: var(--warning-light); color: var(--warning); border-color: var(--warning); }
+.btn-warning:hover { background: var(--warning); color: #fff; border-color: var(--warning); }
+.btn-danger { background: var(--danger-light); color: var(--danger); border-color: var(--danger); }
+.btn-danger:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
 .btn-sm { min-height: 36px; padding: 4px 10px; font-size: 0.85em; }
 .btn-icon { min-width: 48px; min-height: 48px; padding: 6px; border-radius: 50%; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -719,16 +725,12 @@ html, body { overflow-x: clip; }
 /* ===== 首页刷题入口（电脑端 ≥641px 整理布局；手机端 ≤640px 保持 flex 换行原样） ===== */
 @media (min-width: 641px) {
   .entry-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  /* 主入口：顺序/随机各占半行，图标置顶大按钮（与刷题页模式选择风格一致） */
+  /* 主入口：顺序/随机各占半行大按钮 */
   #entrySeq, #entryAll {
     grid-column: span 2;
-    min-height: 76px;
-    flex-direction: column;
-    gap: 4px;
+    min-height: 64px;
     font-size: 1.05em;
   }
-  #entrySeq .entry-ico, #entryAll .entry-ico { font-size: 1.5em; line-height: 1; }
-  #entrySeq .entry-count, #entryAll .entry-count { font-size: 0.75em; opacity: 0.8; }
   /* 薄弱专项：通栏一行 */
   #weakBtn { grid-column: 1 / -1; }
 }

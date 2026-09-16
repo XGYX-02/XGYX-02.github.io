@@ -32,11 +32,11 @@
     <div class="card-header"><span class="card-title">🚀 刷题入口</span></div>
     <div class="btn-group entry-grid">
       <a href="exam.html?mode=seq" class="btn btn-primary" id="entrySeq">📖 全部顺序刷题</a>
-      <a href="exam.html?mode=random" class="btn" id="entryAll" style="background:var(--accent);color:#fff;border-color:var(--accent);">🎲 全部随机刷题</a>
-      <a href="exam.html?type=single" class="btn" id="entrySingle">📝 单选题</a>
-      <a href="exam.html?type=multi" class="btn" id="entryMulti" style="background:#8b5cf6;color:#fff;border-color:#8b5cf6;">☑️ 多选题</a>
+      <a href="exam.html?mode=random" class="btn btn-accent" id="entryAll">🎲 全部随机刷题</a>
+      <a href="exam.html?type=single" class="btn btn-primary" id="entrySingle">📝 单选题</a>
+      <a href="exam.html?type=multi" class="btn btn-accent" id="entryMulti">☑️ 多选题</a>
       <a href="exam.html?type=judge" class="btn btn-success" id="entryJudge">✅ 判断题</a>
-      <a href="exam.html?type=calc" class="btn btn-warning" id="entryCalc" style="background:var(--warning);color:#fff;border-color:var(--warning);">🔢 计算题</a>
+      <a href="exam.html?type=calc" class="btn btn-warning" id="entryCalc">🔢 计算题</a>
       <a href="exam.html?mode=weak" class="btn btn-danger" id="weakBtn">🎯 薄弱题目专项</a>
     </div>
   </div>
@@ -71,30 +71,25 @@ function updateStats() {
   // 刷题入口：按题型实时统计题数（含PDF导入题），始终显示，0题时置灰提示导入
   const typeCounts = { single: 0, multi: 0, judge: 0, calc: 0 };
   App.validQuestions().forEach(q => { typeCounts[q.type] = (typeCounts[q.type] || 0) + 1; });
-  // 入口文案统一生成：图标/文案/题数拆为span（手机端内联渲染与纯文本一致；电脑端供网格排版用）
-  const setEntry = (id, icon, label, count) => {
-    document.getElementById(id).innerHTML =
-      `<span class="entry-ico">${icon}</span> <span class="entry-label">${label} <span class="entry-count">(${count}题)</span></span>`;
-  };
   const entryMeta = {
-    entrySingle: ['📝', '单选题', 'single'],
-    entryMulti: ['☑️', '多选题', 'multi'],
-    entryJudge: ['✅', '判断题', 'judge'],
-    entryCalc: ['🔢', '计算题', 'calc']
+    entrySingle: ['📝 单选题', 'single'],
+    entryMulti: ['☑️ 多选题', 'multi'],
+    entryJudge: ['✅ 判断题', 'judge'],
+    entryCalc: ['🔢 计算题', 'calc']
   };
-  Object.entries(entryMeta).forEach(([id, [icon, label, type]]) => {
+  Object.entries(entryMeta).forEach(([id, [label, type]]) => {
     const el = document.getElementById(id);
     el.style.display = '';
-    setEntry(id, icon, label, typeCounts[type]);
+    el.textContent = `${label} (${typeCounts[type]}题)`;
     el.style.opacity = typeCounts[type] > 0 ? '' : '0.5';
     el.title = typeCounts[type] > 0 ? '' : '该题型暂无题目，可在设置页通过PDF导入';
   });
   const totalAll = Object.values(typeCounts).reduce((s, n) => s + n, 0);
-  setEntry('entrySeq', '📖', '全部顺序刷题', totalAll);
-  setEntry('entryAll', '🎲', '全部随机刷题', totalAll);
+  document.getElementById('entrySeq').textContent = `📖 全部顺序刷题 (${totalAll}题)`;
+  document.getElementById('entryAll').textContent = `🎲 全部随机刷题 (${totalAll}题)`;
   // 薄弱题数量
   const weakBtn = document.getElementById('weakBtn');
-  setEntry('weakBtn', '🎯', '薄弱题目专项', stats.weakCount);
+  weakBtn.textContent = `🎯 薄弱题目专项 (${stats.weakCount}题)`;
   if (stats.weakCount === 0) weakBtn.classList.add('btn');
   // 全局进度
   const records = Storage.getRecords();
