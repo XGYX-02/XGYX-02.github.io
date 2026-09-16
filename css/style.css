@@ -716,3 +716,19 @@ select { min-width: 120px; cursor: pointer; }
   html, body { overflow-x: hidden; }
 }
 html, body { overflow-x: clip; }
+/* ===== 首页刷题入口（电脑端 ≥641px 整理布局；手机端 ≤640px 保持 flex 换行原样） ===== */
+@media (min-width: 641px) {
+  .entry-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  /* 主入口：顺序/随机各占半行，图标置顶大按钮（与刷题页模式选择风格一致） */
+  #entrySeq, #entryAll {
+    grid-column: span 2;
+    min-height: 76px;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 1.05em;
+  }
+  #entrySeq .entry-ico, #entryAll .entry-ico { font-size: 1.5em; line-height: 1; }
+  #entrySeq .entry-count, #entryAll .entry-count { font-size: 0.75em; opacity: 0.8; }
+  /* 薄弱专项：通栏一行 */
+  #weakBtn { grid-column: 1 / -1; }
+}
