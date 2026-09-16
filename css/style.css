@@ -722,15 +722,20 @@ select { min-width: 120px; cursor: pointer; }
   html, body { overflow-x: hidden; }
 }
 html, body { overflow-x: clip; }
-/* ===== 首页刷题入口（电脑端 ≥641px 整理布局；手机端 ≤640px 保持 flex 换行原样） ===== */
+/* ===== 首页刷题入口网格 ===== */
+/* 电脑端（≥641px）：顺序/随机各占半行 + 题型四等分一行 + 薄弱通栏 */
+.entry-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+#entrySeq, #entryAll { grid-column: span 2; min-height: 64px; }
+#weakBtn { grid-column: 1 / -1; }
 @media (min-width: 641px) {
-  .entry-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  /* 主入口：顺序/随机各占半行大按钮 */
-  #entrySeq, #entryAll {
-    grid-column: span 2;
-    min-height: 64px;
-    font-size: 1.05em;
-  }
-  /* 薄弱专项：通栏一行 */
-  #weakBtn { grid-column: 1 / -1; }
+  #entrySeq, #entryAll { font-size: 1.05em; }
+}
+/* 手机端（≤640px）：顺序/随机/薄弱各自通栏，题型两两一行 */
+@media (max-width: 640px) {
+  .entry-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  #entrySeq, #entryAll, #weakBtn { grid-column: 1 / -1; }
+}
+/* 超小屏（≤400px）：题型按钮字号微缩，防止带题数的文字溢出 */
+@media (max-width: 400px) {
+  #entrySingle, #entryMulti, #entryJudge, #entryCalc { font-size: 0.9em; }
 }
