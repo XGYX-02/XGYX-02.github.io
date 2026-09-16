@@ -379,8 +379,6 @@ const PdfImport = (() => {
   function refreshImportedCount() {
     const el = document.getElementById('pdfImportedCount');
     if (el) el.textContent = Storage.getImportedQuestions().length;
-    // 设置页"全局设置"概览同步刷新（题库总量等随导入/清空变化）
-    if (typeof updateOverview === 'function') updateOverview();
   }
 
   /** 清空全部题库（内置+导入，一题不留，含确认） */

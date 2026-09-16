@@ -10,18 +10,6 @@
 <body>
 <div class="container">
   <nav class="nav"></nav>
-  <!-- 0. 全局概览 -->
-  <div class="card">
-    <div class="card-header"><span class="card-title">⚙️ 全局设置</span></div>
-    <div class="stats-grid" id="cfgOverview">
-      <div class="stat-item"><div class="stat-value" id="ovFont">标准</div><div class="stat-label">字体大小</div></div>
-      <div class="stat-item"><div class="stat-value" id="ovBank">0</div><div class="stat-label">题库总量</div></div>
-      <div class="stat-item"><div class="stat-value" id="ovDone">0</div><div class="stat-label">已做题数</div></div>
-      <div class="stat-item"><div class="stat-value" id="ovRate">0%</div><div class="stat-label">正确率</div></div>
-      <div class="stat-item"><div class="stat-value" id="ovSession">0</div><div class="stat-label">可恢复练习</div></div>
-    </div>
-    <div style="font-size:0.75em;color:var(--text-secondary);margin-top:8px;">设置项按下方分组展示，修改即时保存</div>
-  </div>
   <!-- 1. 主题与视觉 -->
   <div class="card">
     <div class="setting-group">
@@ -29,6 +17,7 @@
       <div class="setting-row">
         <div><div class="setting-label">字体大小</div></div>
         <select id="cfgFontSize" onchange="updateSetting('fontSize', this.value)" style="min-height:48px;">
+          <option value="small">缩小</option>
           <option value="standard">标准</option>
           <option value="large">放大</option>
           <option value="xlarge">超大</option>
@@ -265,25 +254,7 @@ function loadSettings() {
 function updateSetting(key, value) {
   Storage.updateConfig(key, value);
   App.applyAllSettings();
-  updateOverview(); // 概览同步刷新
   App.showToast('已保存', 'success');
-}
-/** 全局设置概览：当前配置与学习数据摘要 */
-function updateOverview() {
-  const cfg = Storage.getConfig();
-  document.getElementById('ovFont').textContent = ({ standard: '标准', large: '放大', xlarge: '超大' })[cfg.fontSize] || '标准';
-  const stats = App.getStats();
-  document.getElementById('ovBank').textContent = stats.total;
-  document.getElementById('ovDone').textContent = stats.done;
-  document.getElementById('ovRate').textContent = stats.correctRate + '%';
-  // 统计有作答进度的可恢复练习会话数
-  const pools = ['all', 'wrong', 'weak', 'type-single', 'type-multi', 'type-judge', 'type-calc'];
-  let resumable = 0;
-  pools.forEach(p => ['seq', 'random'].forEach(o => {
-    const s = Storage.getSession(p + '-' + o);
-    if (s && Object.keys(s.answered || {}).length > 0) resumable++;
-  }));
-  document.getElementById('ovSession').textContent = resumable;
 }
 function resetScores() {
   Storage.updateConfig('scoreSingle', 1);
@@ -363,7 +334,6 @@ function resetConfig() {
 }
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
-  updateOverview();
   PdfImport.refreshImportedCount();
 });
 </script>

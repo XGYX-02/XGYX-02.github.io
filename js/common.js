@@ -302,7 +302,7 @@ const App = (() => {
     }
   }
   function applyFontSize(size) {
-    document.documentElement.classList.remove('font-standard', 'font-large', 'font-xlarge');
+    document.documentElement.classList.remove('font-small', 'font-standard', 'font-large', 'font-xlarge');
     document.documentElement.classList.add('font-' + size);
   }
   function applyFormulaMono(enabled) {
