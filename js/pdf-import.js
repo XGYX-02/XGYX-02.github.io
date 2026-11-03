@@ -14,6 +14,8 @@
  *   3. 计算题：题干……      答案：任意文字（无选项时自动识别为计算题）
  *   4. 内嵌答案：题干（ B ）括号中直接写答案，可省略"答案："行
  *   5. 章节自动识别：单独一行"第X章 xxx"会作为其后题目的章节
+ *   6. 表格式题库（Excel/WPS表格导出的PDF）：表头为"题型|题目|选项A…|答案"列，
+ *      按pdf.js提取的文字坐标重建表格行列后解析，选项/答案均在各自单元格内
  */
 const PdfImport = (() => {
   // ==================== 文本解析（纯函数，可单独测试） ====================
@@ -259,15 +261,271 @@ const PdfImport = (() => {
     return null;
   }
 
+  // ==================== 表格式题库识别 ====================
+  // 支持Excel/WPS表格导出的PDF题库：表头为"题型/题目/选项A…/答案"等列。
+  // pdf.js会把每个单元格提取为独立文字块（带x/y坐标），先按坐标重建表格行列，
+  // 再逐行解析为题目。列边界由"内容区间合并→贪心映射到表头列"自动推断，
+  // 每行的"题型"词作为行锚点（单元格内换行的题干/选项按最近的锚点归并）。
+
+  /** 题型列常见取值（整词匹配，用于定位表格行） */
+  const TYPE_WORD_RE = /^(题型|类型|单选题|单项选择题|多选题|多项选择题|不定项选择题?|不定项|判断题|填空题|简答题|计算题|问答题|分析题|案例分析题|选择题)$/;
+  /** 全角/中文字符（拼接单元格文字时判断是否需要补空格） */
+  const WIDE_CHAR_RE = /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/;
+
+  /** 同一水平线（y差<2）的文字项聚成行带；带内按x升序，带间自上而下 */
+  function buildBands(items) {
+    const bands = [];
+    for (const it of items) {
+      if (!it.str || !it.str.trim()) continue;
+      let band = bands.find(b => Math.abs(b.y - it.y) < 2);
+      if (!band) { band = { y: it.y, items: [] }; bands.push(band); }
+      band.items.push(it);
+    }
+    bands.forEach(b => b.items.sort((a, c) => a.x - c.x));
+    bands.sort((a, b) => b.y - a.y);
+    return bands;
+  }
+
+  /**
+   * 识别表头行带：至少3列，且同时含"题型"列、"题目/题干"列和"答案"列
+   * @returns {{roles: string[], centers: number[], xs: number[]}|null} 每列角色：type/stem/option/answer/extra
+   */
+  function detectTableHeader(band) {
+    if (band.items.length < 3) return null;
+    const roles = [];
+    let hasType = false, hasStem = false, hasAnswer = false;
+    for (const it of band.items) {
+      const t = it.str.trim();
+      if (/^(题型|类型|题目类型)$/.test(t)) { roles.push('type'); hasType = true; }
+      else if (/^(题目|题干|问题)$/.test(t)) { roles.push('stem'); hasStem = true; }
+      else if (/^(答案|正确答案|参考答案|标准答案)$/.test(t)) { roles.push('answer'); hasAnswer = true; }
+      else if (/^(解析|答案解析|解答|解释|说明)$/.test(t)) roles.push('extra');
+      else if (/^(选项\s*)?[A-Ha-h]$/.test(t)) roles.push('option');
+      else roles.push('extra');
+    }
+    if (!hasType || !hasStem || !hasAnswer) return null;
+    // 选项列必须位于题目列与答案列之间，其余未知列（序号/分值等）忽略
+    const stemIdx = roles.indexOf('stem');
+    const ansIdx = roles.indexOf('answer');
+    for (let i = 0; i < roles.length; i++) {
+      if (roles[i] === 'option' && (i < stemIdx || i > ansIdx)) roles[i] = 'extra';
+    }
+    return {
+      roles,
+      centers: band.items.map(it => it.x + (it.w || 0) / 2),
+      xs: band.items.map(it => it.x)
+    };
+  }
+
+  /**
+   * 把一页所有文字项的[x, x+w]区间按空隙合并成"覆盖段"（近似各列内容范围）。
+   * 空隙阈值自适应：列间留白明显大于列内间隙时取两者中点，否则默认4
+   */
+  function mergeCoverRuns(items) {
+    const ivs = items.filter(it => it.str && it.str.trim())
+      .map(it => [it.x, it.x + (it.w || 0)])
+      .sort((a, b) => a[0] - b[0]);
+    if (!ivs.length) return [];
+    const gaps = [];
+    for (let i = 1; i < ivs.length; i++) {
+      const g = ivs[i][0] - ivs[i - 1][1];
+      if (g > 0.01) gaps.push(g);
+    }
+    let tol = 4;
+    if (gaps.length >= 2) {
+      const uniq = [...new Set(gaps)].sort((a, b) => a - b);
+      // 自小到大找第一个"显著跳变"作为列内间隙与列间留白的分界。
+      // 注意：两端对齐的表格里列内间隙常为0，此时间隙列表只含列间留白，
+      // 跳变点会落在列间留白内部（算出偏大的tol），因此上限压到5：
+      // 列内间隙>5只是无害的"列内分裂"（仍映射回同列），而列间留白通常>5。
+      for (let i = 0; i + 1 < uniq.length; i++) {
+        const jump = uniq[i + 1] - uniq[i];
+        const ratio = uniq[i + 1] / uniq[i];
+        if (jump >= 2 && ratio >= 1.5) { tol = Math.min((uniq[i] + uniq[i + 1]) / 2, 5); break; }
+      }
+    }
+    const runs = [];
+    for (const [s, e] of ivs) {
+      const last = runs[runs.length - 1];
+      if (last && s - last[1] <= tol) last[1] = Math.max(last[1], e);
+      else runs.push([s, e]);
+    }
+    return runs;
+  }
+
+  /** 单元格内多段文字拼接：中文相连不加空格，两侧均为西文/数字时补空格 */
+  function joinCellText(parts) {
+    let s = '';
+    for (const p of parts) {
+      const t = String(p).trim();
+      if (!t) continue;
+      if (!s) { s = t; continue; }
+      if (!WIDE_CHAR_RE.test(s[s.length - 1]) && !WIDE_CHAR_RE.test(t[0])) s += ' ';
+      s += t;
+    }
+    return s.trim();
+  }
+
+  /** 把一行（若干行带）按列边界组装为题目；失败记入skipped */
+  function buildTableQuestion(parts, roles, edges, chapter, no, questions, skipped) {
+    const n = roles.length;
+    const cells = Array.from({ length: n }, () => []);
+    for (const band of parts) {
+      for (const it of band.items) {
+        let k = 0;
+        for (let j = 0; j < n; j++) if (edges[j] <= it.x + 2) k = j;
+        cells[k].push(it.str);
+      }
+    }
+    const cell = k => (k >= 0 ? joinCellText(cells[k]) : '');
+    const typeText = cell(roles.indexOf('type'));
+    const stem = cell(roles.indexOf('stem'));
+    const answerText = cell(roles.lastIndexOf('answer'));
+    const explanation = roles.map((r, k) => (r === 'extra' ? cell(k) : '')).filter(Boolean).join(' ').trim();
+    const options = [];
+    roles.forEach((r, k) => {
+      if (r === 'option') {
+        const t = cell(k);
+        if (t) options.push({ key: String.fromCharCode(65 + options.length), text: t });
+      }
+    });
+    const fail = reason => skipped.push({ no, text: (stem || typeText).slice(0, 60), reason });
+
+    if (!stem) return fail('题干为空');
+    const ansInfo = normalizeAnswer(answerText, options);
+    let type = null, answer = null;
+    if (/判断/.test(typeText)) {
+      type = 'judge';
+      if (ansInfo && ansInfo.type === 'judge') answer = ansInfo.answer;
+      else if (ansInfo && ansInfo.type === 'single' && /^[AB]$/.test(ansInfo.answer)) answer = ansInfo.answer;
+      else if (/正确|对|√|是/.test(answerText)) answer = 'A';
+      else if (/错误|错|×|否/.test(answerText)) answer = 'B';
+      if (!answer) return fail('判断题答案无法识别');
+    } else if (/选|不定/.test(typeText)) {
+      if (!ansInfo) return fail('未找到答案');
+      if (ansInfo.type === 'single' || ansInfo.type === 'multi') {
+        type = ansInfo.type;
+        answer = ansInfo.answer;
+        const keys = new Set(options.map(o => o.key));
+        const letters = type === 'multi' ? answer.split('') : [answer];
+        if (options.length < 2 || !letters.every(l => keys.has(l))) return fail('答案字母超出选项范围（选项可能未完整识别）');
+      } else if (ansInfo.type === 'judge') {
+        type = 'judge';
+        answer = ansInfo.answer;
+      } else {
+        return fail('答案无法识别');
+      }
+    } else {
+      // 填空/简答/计算等题型：答案为单元格文本
+      if (!answerText) return fail('未找到答案');
+      type = 'calc';
+      answer = answerText.slice(0, 500);
+    }
+    questions.push({
+      type,
+      chapter,
+      question: stem,
+      options: type === 'judge' ? [] : options,
+      answer,
+      explanation,
+      image: ''
+    });
+  }
+
+  /**
+   * 解析"表格式"题库PDF（每页一张表格，表头：题型|题目|选项…|答案）
+   * @param {Array<{items: Array<{str,x,y,w}>}>} pages 每页文字项（含坐标）
+   * @param {string} defaultChapter 默认章节名
+   * @returns {{questions: Array, skipped: Array}|null} 非表格式PDF返回null
+   */
+  function parseTablePages(pages, defaultChapter) {
+    if (!Array.isArray(pages) || !pages.length) return null;
+    const pageBands = pages.map(p => buildBands(p.items || []));
+    // 1) 全文寻找表头（任一页命中即认定为表格式题库）
+    let header = null;
+    for (const bands of pageBands) {
+      for (const band of bands) {
+        const h = detectTableHeader(band);
+        if (h) { header = h; break; }
+      }
+      if (header) break;
+    }
+    if (!header) return null;
+    const n = header.roles.length;
+    const stemCol = header.roles.indexOf('stem');
+    // 2) 推断各列内容起始x（跨页取最小）：每页区间合并成覆盖段后贪心映射到表头列
+    const starts = new Array(n).fill(null);
+    for (const bands of pageBands) {
+      const dataItems = [];
+      for (const b of bands) if (!detectTableHeader(b)) dataItems.push(...b.items);
+      const runs = mergeCoverRuns(dataItems);
+      let col = 0;
+      for (const run of runs) {
+        const rc = (run[0] + run[1]) / 2;
+        let best = -1, bestD = Infinity;
+        for (let k = col; k < n; k++) {
+          const d = Math.abs(header.centers[k] - rc);
+          if (d < bestD) { bestD = d; best = k; }
+        }
+        if (best >= 0) {
+          if (starts[best] === null || run[0] < starts[best]) starts[best] = run[0];
+          col = best;
+        }
+      }
+    }
+    // 空列（如判断题页未用到的选项列）回退为表头锚点x；列起始须严格递增
+    const edges = starts.map((s, k) => (s !== null ? s : header.xs[k]));
+    for (let k = 1; k < n; k++) {
+      if (edges[k] <= edges[k - 1]) edges[k] = header.xs[k] > edges[k - 1] ? header.xs[k] : edges[k - 1] + 1;
+    }
+    // 3) 逐页按行组装题目：题型词所在行带为行锚点，其余行带归并到最近的锚点
+    const questions = [];
+    const skipped = [];
+    let no = 0;
+    for (const bands of pageBands) {
+      const dataBands = bands.filter(b => !detectTableHeader(b));
+      if (!dataBands.length) continue;
+      // 行距 = 相邻行带的最小间距（用于识别孤带：页眉页脚/页码等）
+      let lineGap = Infinity;
+      for (let i = 1; i < dataBands.length; i++) lineGap = Math.min(lineGap, dataBands[i - 1].y - dataBands[i].y);
+      if (!isFinite(lineGap) || lineGap <= 0) lineGap = 10;
+      const labelIdx = [];
+      dataBands.forEach((b, i) => {
+        if (b.items.some(it => TYPE_WORD_RE.test(it.str.trim()) && it.x < edges[stemCol] - 2)) labelIdx.push(i);
+      });
+      if (!labelIdx.length) continue;
+      const labelYs = labelIdx.map(i => dataBands[i].y);
+      const rows = labelIdx.map(() => []);
+      dataBands.forEach(b => {
+        let bestR = 0, bestD = Infinity;
+        for (let r = 0; r < labelYs.length; r++) {
+          const d = Math.abs(b.y - labelYs[r]);
+          if (d < bestD) { bestD = d; bestR = r; }
+        }
+        if (bestD <= lineGap * 4) rows[bestR].push(b);
+      });
+      for (const parts of rows) {
+        parts.sort((a, b) => b.y - a.y);
+        buildTableQuestion(parts, header.roles, edges, defaultChapter || 'PDF导入', ++no, questions, skipped);
+      }
+    }
+    return { questions, skipped };
+  }
+
   // ==================== PDF文字提取 ====================
 
-  /** 读取PDF文件并提取全部文字（依赖本地pdf.js） */
-  async function extractTextFromFile(file, onProgress) {
+  /**
+   * 读取PDF并提取每页文字及其坐标（依赖本地pdf.js）
+   * @returns {{text: string, pages: Array<{items: Array<{str,x,y,w}>}>}}
+   *          text为全文纯文本（与坐标解析失败时的回退路径共用），pages供表格式识别
+   */
+  async function extractPagesFromFile(file, onProgress) {
     if (typeof pdfjsLib === 'undefined') throw new Error('pdf.js库未加载');
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/lib/pdf.worker.min.js';
     const buf = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
     let text = '';
+    const pages = [];
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
@@ -276,9 +534,17 @@ const PdfImport = (() => {
         if (item.hasEOL) text += '\n';
       }
       text += '\n';
+      pages.push({
+        items: content.items.map(it => ({ str: it.str, x: it.transform[4], y: it.transform[5], w: it.width || 0 }))
+      });
       if (onProgress) onProgress(i, pdf.numPages);
     }
-    return text;
+    return { text, pages };
+  }
+
+  /** 读取PDF文件并提取全部文字（依赖本地pdf.js） */
+  async function extractTextFromFile(file, onProgress) {
+    return (await extractPagesFromFile(file, onProgress)).text;
   }
 
   // ==================== 页面交互（setting.html调用） ====================
@@ -298,7 +564,7 @@ const PdfImport = (() => {
     const chapter = (document.getElementById('pdfChapterInput') || {}).value || 'PDF导入';
     try {
       statusEl.textContent = '⏳ 正在读取PDF：' + file.name;
-      const text = await extractTextFromFile(file, (i, n) => {
+      const { text, pages } = await extractPagesFromFile(file, (i, n) => {
         statusEl.textContent = `⏳ 正在提取文字（第${i}/${n}页）…`;
       });
       if (text.replace(/\s/g, '').length < 10) {
@@ -307,8 +573,15 @@ const PdfImport = (() => {
         input.value = '';
         return;
       }
-      parsed = parseQuestionText(text, chapter);
-      console.log('[PDF导入] 解析完成：识别', parsed.questions.length, '题，跳过', parsed.skipped.length, '块');
+      // 表格式题库优先（表头含"题型/题目/答案"列）；未命中或无产出时走普通文档式解析
+      const tableParsed = parseTablePages(pages, chapter);
+      if (tableParsed && tableParsed.questions.length > 0) {
+        parsed = tableParsed;
+        console.log('[PDF导入] 表格式题库解析完成：识别', parsed.questions.length, '题，跳过', parsed.skipped.length, '行');
+      } else {
+        parsed = parseQuestionText(text, chapter);
+        console.log('[PDF导入] 解析完成：识别', parsed.questions.length, '题，跳过', parsed.skipped.length, '块');
+      }
       statusEl.textContent = '';
       input.value = '';
       if (parsed.questions.length === 0) {
@@ -379,6 +652,8 @@ const PdfImport = (() => {
   function refreshImportedCount() {
     const el = document.getElementById('pdfImportedCount');
     if (el) el.textContent = Storage.getImportedQuestions().length;
+    // 设置页"全局设置"概览同步刷新（题库总量等随导入/清空变化）
+    if (typeof updateOverview === 'function') updateOverview();
   }
 
   /** 清空全部题库（内置+导入，一题不留，含确认） */
@@ -397,7 +672,9 @@ const PdfImport = (() => {
   // ===== 公共API =====
   return {
     parseQuestionText,          // 纯解析函数（测试用）
+    parseTablePages,           // 表格式题库纯解析函数（测试用）
     extractTextFromFile,
+    extractPagesFromFile,
     handleFileSelect,
     confirmImport,
     clearImported,

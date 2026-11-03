@@ -221,4 +221,68 @@ assert.strictEqual(skipped.length, 3);
 assert.strictEqual(skipped[0].reason, '未找到答案');
 assert.strictEqual(skipped[1].reason, '答案字母超出选项范围（选项可能未完整识别）');
 assert.strictEqual(skipped[2].reason, '答案字母超出选项范围（选项可能未完整识别）');
+
+// ==================== 表格式题库（坐标重建）解析测试 ====================
+console.log('\n=== 表格式题库（坐标重建）解析测试 ===');
+// 模拟Excel/WPS表格导出的PDF：每格为独立文字项（含x/y/w坐标），
+// 几何关系仿照真实表格式题库（题干/选项在单元格内换行、题型词垂直居中）
+const it = (str, x, y, w) => ({ str, x, y, w });
+const tablePages = [{
+  items: [
+    // 表头
+    it('题型', 58, 566, 23), it('题目', 216, 566, 23), it('选项 A', 400, 566, 35),
+    it('选项 B', 488, 566, 35), it('选项 C', 557, 566, 35), it('答案', 692, 566, 23),
+    // 行1：单选题，题干两行、选项B跨两行
+    it('欧姆定律描述的是导体中', 94, 549, 126),
+    it('单选题', 54, 542, 32), it('电流与电压成正比', 400, 542, 80),
+    it('与电流成反', 488, 542, 58), it('适用于线性电路', 557, 542, 80), it('C', 700, 542, 6),
+    it('电流与电压的关系？', 94, 535, 110), it('比的关系', 488, 535, 58),
+    // 行2：判断题（选项列为正确/错误）
+    it('判断题', 54, 520, 32), it('同轴电缆适合传输高频信号。', 94, 520, 149),
+    it('正确', 406, 520, 21), it('错误', 494, 520, 21), it('正确', 692, 520, 21),
+    // 行3：多选题
+    it('多选题', 54, 498, 32), it('下列属于无源器件的是？', 94, 498, 126),
+    it('电阻器', 400, 498, 35), it('电容器', 488, 498, 35), it('电感器', 557, 498, 35),
+    it('ABC', 700, 498, 18),
+    // 行4：填空题（选项列全空，答案为文本）
+    it('填空题', 54, 476, 32), it('1度电等于____焦耳。', 94, 476, 110),
+    it('3.6×10^6J', 692, 476, 48),
+    // 行5：答案列为空 → 应跳过
+    it('单选题', 54, 454, 32), it('这道题的答案列是空的？', 94, 454, 126),
+    it('选项甲', 400, 454, 35), it('选项乙', 488, 454, 35), it('选项丙', 557, 454, 35)
+  ]
+}];
+const t = PdfImport.parseTablePages(tablePages, '表格测试');
+t.questions.forEach((q, i) => {
+  console.log(`[${i + 1}] type=${q.type} answer=${q.answer} :: ${q.question}`);
+  if (q.options.length) console.log(`    选项: ${q.options.map(o => o.key + '.' + o.text).join(' | ')}`);
+});
+t.skipped.forEach(s => console.log(`#${s.no} [${s.reason}] ${s.text}`));
+console.log(`共解析 ${t.questions.length} 题，跳过 ${t.skipped.length} 行`);
+
+assert.strictEqual(t.questions.length, 4, '表格应解析出4题');
+assert.strictEqual(t.skipped.length, 1, '空答案行应跳过');
+// 行1：跨行带的题干与选项B重组
+assert.strictEqual(t.questions[0].type, 'single');
+assert.strictEqual(t.questions[0].answer, 'C');
+assert.strictEqual(t.questions[0].question, '欧姆定律描述的是导体中电流与电压的关系？');
+assert.strictEqual(t.questions[0].options.length, 3);
+assert.strictEqual(t.questions[0].options[1].text, '与电流成反比的关系', '选项B两行应拼为一个单元格');
+// 行2：判断题，答案"正确"→A，不保留选项
+assert.strictEqual(t.questions[1].type, 'judge');
+assert.strictEqual(t.questions[1].answer, 'A');
+assert.strictEqual(t.questions[1].options.length, 0);
+// 行3：多选答案ABC
+assert.strictEqual(t.questions[2].type, 'multi');
+assert.strictEqual(t.questions[2].answer, 'ABC');
+assert.strictEqual(t.questions[2].options.length, 3);
+// 行4：填空题按calc处理，答案为单元格文本
+assert.strictEqual(t.questions[3].type, 'calc');
+assert.strictEqual(t.questions[3].answer, '3.6×10^6J');
+assert.strictEqual(t.questions[3].options.length, 0);
+// 空答案行跳过原因
+assert.strictEqual(t.skipped[0].reason, '未找到答案');
+// 非表格式输入返回null（走普通文档式解析路径）
+assert.strictEqual(PdfImport.parseTablePages([{ items: [it('1. 普通文档式题干', 50, 50, 90)] }], 'x'), null);
+
 console.log('\n✅ 全部断言通过');
